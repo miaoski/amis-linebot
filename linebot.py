@@ -74,14 +74,14 @@ if __name__ == "__main__":
     config = ConfigParser.ConfigParser()
     try:
         config.read('linebot.cfg')
+        LINE_HEADERS = {
+            "X-Line-ChannelID": config.get('linebot', 'channelID'),
+            "X-Line-ChannelSecret": config.get('linebot', 'channelSecret'),
+            "X-Line-Trusted-User-With-ACL": config.get('linebot', 'MID'),
+        }
     except:
         print u'請 cp linebot.cfg.default linebot.cfg 並修改裡面的設定'
         raise
-    LINE_HEADERS = {
-        "X-Line-ChannelID": config.get('linebot', 'channelID'),
-        "X-Line-ChannelSecret": config.get('linebot', 'channelSecret'),
-        "X-Line-Trusted-User-With-ACL": config.get('linebot', 'MID'),
-    }
     app.config['JSON_AS_ASCII'] = False     # JSON in UTF-8
     app.config['DEBUG'] = False
     context = ('cert1.pem', 'privkey1.pem') # Copy /etc/letsencrypt/live/ files to current dir
