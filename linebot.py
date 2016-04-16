@@ -8,21 +8,11 @@ import requests
 import logging
 import ConfigParser
 
-config = ConfigParser.ConfigParser()
-config.read('linebot.cfg')
-
 app = Flask(__name__)
 app.logger.setLevel(logging.DEBUG)
 
 DATABASE = 'dict-amis.sq3'
 LINE_ENDPOINT = "https://trialbot-api.line.me"
-LINE_HEADERS = {
-    "X-Line-ChannelID": config.get('linebot', 'channelID'),
-    "X-Line-ChannelSecret": config.get('linebot', 'channelSecret'),
-    "X-Line-Trusted-User-With-ACL": config.get('linebot', 'MID'),
-}
-
-re_uuid = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
 
 def connect_db():
     return sqlite3.connect(DATABASE)
@@ -81,6 +71,17 @@ def isCJK(s):
     return re.match(r'[\u00-\uff]+', s) is None
 
 if __name__ == "__main__":
+    config = ConfigParser.ConfigParser()
+    try:
+        config.read('linebot.cfg')
+    except:
+        print u'請 cp linebot.cfg.default linebot.cfg 並修改裡面的設定'
+        raise
+    LINE_HEADERS = {
+        "X-Line-ChannelID": config.get('linebot', 'channelID'),
+        "X-Line-ChannelSecret": config.get('linebot', 'channelSecret'),
+        "X-Line-Trusted-User-With-ACL": config.get('linebot', 'MID'),
+    }
     app.config['JSON_AS_ASCII'] = False     # JSON in UTF-8
     app.config['DEBUG'] = False
     context = ('cert1.pem', 'privkey1.pem') # Copy /etc/letsencrypt/live/ files to current dir
