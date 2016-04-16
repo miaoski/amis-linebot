@@ -70,7 +70,22 @@ def events(to, content):
 def isCJK(s):
     return re.match(r'[\u00-\uff]+', s) is None
 
+
+def lookup(s):
+    return u'你查的是: ' + s
+
+def testme():
+    print 'False ==', isCJK("nga'aiho")
+    print 'True ==', isCJK(u'貓')
+    print lookup('pusi')
+    print lookup('posi')
+    print lookup('pusi\'')
+    print lookup('pusi^')
+    print lookup(u'貓')
+    sys.exit(10)
+
 if __name__ == "__main__":
+    testme()
     config = ConfigParser.ConfigParser()
     try:
         config.read('linebot.cfg')
