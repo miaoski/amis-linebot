@@ -12,7 +12,8 @@ apt-get install git python-pip build-essential python-dev libffi-dev libssl-dev
 pip install pyopenssl ndg-httpsclient pyasn1
 pip install urllib3 --upgrade
 git clone https://github.com/letsencrypt/letsencrypt /opt/letsencrypt
-./letsencrypt-auto --standalone -d amis.noip.me
+./letsencrypt-auto --standalone -d amis.miaoski.idv.tw
+pip install flask
 ```
 
 改一下 default locale 
@@ -23,6 +24,21 @@ vim /etc/default/locale
 
 BOT 的話，參考這篇
 * http://qiita.com/shikajiro/items/329d660f1a457676c450
+
+
+修改設定
+========
+請參考 `linebot.cfg.default` 裡面的說明，修改 `linebot.cfg` 即可。
+
+修改 `/etc/ufw/before.rules` 並加上 port-forwarding:
+```
+*nat
+:PREROUTING ACCEPT [0:0]
+-A PREROUTING -p tcp --dport 443 -j REDIRECT --to-port 8443 
+COMMIT
+```
+
+預設的 callback URL 是 https://miaoski.idv.tw:443/callback ，要修改的話請記得改一下 `linebot.py` 裡的路徑。
 
 
 LICENSE

@@ -1,0 +1,5 @@
+; 請從 Channels > Basic information 複製以下資料
+[linebot]
+channelID = ChannelID
+channelSecret = ChannelSecret
+MID = MID
