@@ -51,6 +51,7 @@ def lookup(db, s, uid):
         else:
             return u'「' +s+ u'」可能的阿美語詞有:\n' + iterrows(rows, uid) + u'請輸入號碼查詢單字。'
     else:           # 阿美語查字典
+        s = s.lower()
         cur.execute('SELECT cmn FROM amis WHERE title=? AND example IS NULL', (s, ))
         rows = cur.fetchall()
         if len(rows) > 0:    # 找到了
