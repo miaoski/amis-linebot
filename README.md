@@ -1,8 +1,10 @@
-阿美語萌典 LINE BOT
-===================
+阿美語萌典 BOT
+==============
 隨手紀錄一下在新的 DigtalOcean Droplet 上安裝阿美語萌典 line bot 。
 
-Line Bot 的 callback URL 需要 https ，會驗證簽章，請愛用 Let's Encrypt。
+Line Bot 的 callback URL 需要 https ，會驗證簽章，目前正在和 LINE 工程師合作處理中。
+
+FB Messenger Bot 的前置作業，請參考 [Facebook Messenger Platform Quick Start](https://developers.facebook.com/docs/messenger-platform/quickstart) 的說明。
 
 ```
 apt-get update
@@ -26,9 +28,11 @@ BOT 的話，參考這篇
 * http://qiita.com/shikajiro/items/329d660f1a457676c450
 
 
-修改設定
-========
+設定檔
+======
 請參考 `linebot.cfg.default` 裡面的說明，修改 `linebot.cfg` 即可。
+
+此外， `fbbot.cfg` 請放上兩行字，第一行是 Verify Token 第二行是 Page Access Token。
 
 修改 `/etc/ufw/before.rules` 並加上 port-forwarding:
 ```
