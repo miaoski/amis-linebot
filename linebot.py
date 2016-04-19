@@ -10,6 +10,7 @@ from fuzzy import fuzzme
 import requests
 import json
 import amis
+import pprint
 
 app = flask.Flask(__name__)
 app.logger.setLevel(logging.DEBUG)
@@ -43,8 +44,11 @@ def fbbot():
     if flask.request.method == 'POST':
         db = amis.loaddb()
         try:
-            app.logger.info(flask.request.json)
+            # app.logger.info(flask.request.json)
+            pprint.pprint(flask.request.json)
             for messaging in flask.request.json['entry'][0]['messaging']:
+                if 'message' not in messaging:
+                    continue
                 msg = messaging['message']['text']
                 uid = messaging['sender']['id']
                 if RE_NUM.match(msg):
@@ -53,16 +57,16 @@ def fbbot():
                 else:
                     r = amis.lookup(db, msg, uid)
                 send_fb_msg(uid, r)
-                return flask.Response(status=200)
+            return flask.Response(status=200)
         except:
-            app.logger.info(flask.request.json)
+            raise
             return flask.Response(status=400)
 
 def send_fb_msg(uid, msg):
     url = 'https://graph.facebook.com/v2.6/me/messages?access_token=%s' % FB_APP_TOKEN
     data = {'recipient': {'id': uid},
             'message': {'text': msg}}
-    app.logger.info(data)
+    pprint.pprint(data)
     r = requests.post(url, data=json.dumps(data), headers={'Content-Type': 'application/json'})
     if r.status_code != requests.codes.ok:
         app.logger.warn(str(r.status_code))
