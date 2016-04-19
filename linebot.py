@@ -18,7 +18,7 @@ app.logger.setLevel(logging.DEBUG)
 DATABASE = 'dict-amis.sq3'
 LINE_ENDPOINT = "https://trialbot-api.line.me"
 USER_LASTWORD = {}
-RE_NUM = re.compile(r'[0-9]+')
+RE_NUM = re.compile(r'^[0-9]+$')
 
 def connect_db():
     return sqlite3.connect(DATABASE)
