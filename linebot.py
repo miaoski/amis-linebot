@@ -148,7 +148,7 @@ def line_callback():
     db = amis.loaddb()
     for req in flask.request.json["result"]:
         if req["eventType"] == "138311609100106403":
-            send_text([req["from"]], u"Nga'ayho!  Mikamsia to\n謝謝你使用阿美語萌典 Line 機器人!\n")
+            send_text(req["from"], u"Nga'ayho!  Mikamsia to\n謝謝你使用阿美語萌典 Line 機器人!\n")
         elif req["eventType"] == "138311609000106303":
             uid = req["content"]["from"]
             txt = req["content"]["text"].strip()
