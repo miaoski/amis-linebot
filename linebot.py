@@ -135,13 +135,15 @@ def line_callback():
     if not isValidChannelSignature(
             urllib.unquote(flask.request.headers['X-Line-Channelsignature']), 
             flask.request.get_data()):
+        app.logger.info(flask.request.json)
         return flask.Response(status=470)
-    app.logger.info(flask.request.json)
     if not flask.request.json:
         app.logger.warn('No JSON')
+        app.logger.info(flask.request.json)
         return flask.Response(status=470)
     if 'result' not in flask.request.json:
         app.logger.warn('There is no result in request.json')
+        app.logger.info(flask.request.json)
         return flask.Response(status=470)
     db = amis.loaddb()
     for req in flask.request.json["result"]:
