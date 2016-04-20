@@ -45,6 +45,16 @@ COMMIT
 預設的 callback URL 是 https://miaoski.idv.tw:443/callback ，要修改的話請記得改一下 `linebot.py` 裡的路徑。
 
 
+
+致謝
+====
+LineBot 測試過程，感謝 RonnyWang 提供 Heroku PHP 轉址程式及幫忙測試憑證，感謝 Pichu Chen 提供 www.tih.tw 幫忙轉址，感謝 LINE 台灣工程師 Shawn 測試及除錯。
+
+Facebook Messenger Bot 感謝以下測試人員:
+* Lafin Miku
+* Weiting Tsai
+* Anthony Liu
+
 LICENSE
 =======
 程式是 MIT License, 但阿美語萌典的資料請依循各該版權宣告。
