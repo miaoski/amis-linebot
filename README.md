@@ -54,6 +54,7 @@ Facebook Messenger Bot 感謝以下測試人員:
 * Lafin Miku
 * Weiting Tsai
 * Anthony Liu
+* Yenwen Chen
 
 LICENSE
 =======
