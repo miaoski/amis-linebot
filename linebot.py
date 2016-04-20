@@ -43,76 +43,146 @@ def fbbot():
             return flask.request.args.get('hub.challenge'), 200
     if flask.request.method == 'POST':
         db = amis.loaddb()
-        try:
-            # app.logger.info(flask.request.json)
-            pprint.pprint(flask.request.json)
-            for messaging in flask.request.json['entry'][0]['messaging']:
-                if 'message' not in messaging:
-                    continue
+        # app.logger.info(flask.request.json)
+        for messaging in flask.request.json['entry'][0]['messaging']:
+            if 'sender' not in messaging:
+                app.logger.warn('How can I response to a message without sender?')
+                pprint.pprint(messaging)
+                continue
+            if 'id' not in messaging['sender']:
+                app.logger.warn('How can I response to a sender without id?')
+                pprint.pprint(messaging)
+                continue
+            uid = messaging['sender']['id']
+            if 'message' in messaging:
+                if 'text' not in messaging['message']:
+                    send_fb_msg(uid, u'本機器人只接受文字查詢哦!')
+                    return flask.Response(status=200)
                 msg = messaging['message']['text']
-                uid = messaging['sender']['id']
-                if RE_NUM.match(msg):
-                    choice = int(msg)
-                    r = amis.user_input(db, choice, uid)
-                else:
-                    r = amis.lookup(db, msg, uid)
+                app.logger.info(u'UID %d 查詢 %s' % (uid, msg))
+                r = amis.lookup(db, msg, uid)
                 send_fb_msg(uid, r)
-            return flask.Response(status=200)
-        except:
-            raise
-            return flask.Response(status=400)
+            if 'postback' in messaging:
+                if 'payload' not in messaging['postback']:
+                    app.logger.warn('How can I know a postback without payload?')
+                    pprint.pprint(messaging)
+                    continue
+                pb = messaging['postback']['payload']
+                if pb == '**SkipExample':       # 不看例句
+                    app.logger.info(u'UID %d 不看例句' % uid)
+                    r = u'請輸入您要查詢的單字。'
+                elif pb.startswith('**-'):
+                    app.logger.info(u'UID %d 看例句 %s' % (uid, pb))
+                    r = amis.get_example(db, pb[3:])
+                else:
+                    app.logger.info(u'UID %d 選取 %s' % (uid, pb))
+                    r = amis.lookup(db, pb, uid)
+                send_fb_msg(uid, r)
+        return flask.Response(status=200)
+
 
 def send_fb_msg(uid, msg):
     url = 'https://graph.facebook.com/v2.6/me/messages?access_token=%s' % FB_APP_TOKEN
-    data = {'recipient': {'id': uid},
-            'message': {'text': msg}}
-    pprint.pprint(data)
+    data = {'recipient': {'id': uid}}
+    if type(msg) in [type('str'), type(u'unicode')]:
+        data['message'] = {'text': msg}
+    elif type(msg) == type([]):
+        if msg[0] == 'options':         # 選擇單字
+            buttons = []
+            for xs in msg[2:]:
+                buttons.append({"type": "postback", "title": xs, "payload": xs})
+            data['message'] = {"attachment": {"type":"template", "payload": {"template_type":"button", "text": msg[1], "buttons": buttons}}}
+        elif msg[0] == 'stropt':        # 要看例句嗎
+            send_fb_msg(uid, msg[1])
+            data['message'] = {"attachment": {"type":"template", "payload": { 
+                "template_type":"button", "text": msg[2], "buttons": [
+                    {"type": "postback", "title": u'是', "payload": '**-' + msg[3]},
+                    {"type": "postback", "title": u'否', "payload": '**SkipExample'},
+                    ]}}}
+        else:
+            app.logger.error('Unknown msg %s', msg)
+            return
+    else:
+        app.logger.error('Unknown type %s', str(type(msg)))
+        return
+    # app.logger.info('response to %d' % uid)
     r = requests.post(url, data=json.dumps(data), headers={'Content-Type': 'application/json'})
     if r.status_code != requests.codes.ok:
+        pprint.pprint(data)
         app.logger.warn(str(r.status_code))
         app.logger.warn(str(r.headers))
 
 
+def isValidChannelSignature(exp, raw):
+    import hashlib
+    import hmac
+    import base64
+    secret = LINE_HEADERS['X-Line-ChannelSecret']
+    calc = base64.b64encode(hmac.new(secret, raw, digestmod=hashlib.sha256).digest())
+    if exp != calc:
+        print 'X-Line-Channelsignature: ' + exp
+        print 'Calculated             : ' + calc
+        return False
+    else:
+        return True
+
 @app.route('/callback', methods=['POST',])
 def line_callback():
-    app.logger.info(flask.request.json)
-    try:
-        req = flask.request.json["result"][0]
-    except:
-        app.looger.error('No json[result][0]')
+    import urllib
+    if 'X-Line-Channelsignature' not in flask.request.headers:
+        app.logger.warn('No Channelsignature')
         return flask.Response(status=470)
-    if req["eventType"] == "138311609100106403":
-        send_text([req["from"]], u"Nga'ayho!  Mikamsia to\n謝謝你使用阿美語萌典 Line 機器人!\n")
-    elif req["eventType"] == "138311609000106303":
-        uid = req["content"]["from"]
-        txt = req["content"]["text"].strip()
-        if RE_NUM.match(txt):
-            choice = int(txt)
-            r = amis.user_input(db, choice, uid)
-        else:
-            r = amis.lookup(db, txt, uid)
-        send_text(uid, r)
+    if not isValidChannelSignature(
+            urllib.unquote(flask.request.headers['X-Line-Channelsignature']), 
+            flask.request.get_data()):
+        return flask.Response(status=470)
+    app.logger.info(flask.request.json)
+    if not flask.request.json:
+        app.logger.warn('No JSON')
+        return flask.Response(status=470)
+    if 'result' not in flask.request.json:
+        app.logger.warn('There is no result in request.json')
+        return flask.Response(status=470)
+    db = amis.loaddb()
+    for req in flask.request.json["result"]:
+        if req["eventType"] == "138311609100106403":
+            send_text([req["from"]], u"Nga'ayho!  Mikamsia to\n謝謝你使用阿美語萌典 Line 機器人!\n")
+        elif req["eventType"] == "138311609000106303":
+            uid = req["content"]["from"]
+            txt = req["content"]["text"].strip()
+            if RE_NUM.match(txt):
+                choice = int(txt)
+                r = amis.user_input(db, choice, uid)
+            else:
+                r = amis.lookup(db, txt, uid)
+            send_text(uid, r)
     return flask.Response(status=200)
 
-def send_text(to, text):
-    content = {
-        "contentType": 1,
-        "toType": 1,
-        "text": text
-    }
-    events(to, content)
+def send_text(to, msg):
+    data = { "contentType": 1, "toType": 1 }
+    if type(msg) in [type('str'), type(u'unicode')]:
+        data['text'] = msg
+    elif type(msg) == type([]):
+        if msg[0] == 'options':         # 選擇單字
+            data['text'] = msg[1] +'\n'+ amis.iterrows([[x,] for x in msg[2:]], to)
+        elif msg[0] == 'stropt':        # 要看例句嗎
+            data['text'] = u'%s\n請輸入 0 查看例句' % msg[1]
+    events(to, data)
 
 def events(to, content):
-    app.logger.info(content)
     data = {
-        "to": to,
-        "toChannel": "1383378250",
+        "to": [to,],
+        "toChannel": 1383378250,
         "eventType": "138311608800106203",
         "content": content,
     }
+    # app.logger.info(data)
     r = requests.post(LINE_ENDPOINT + "/v1/events", data=json.dumps(data), headers=LINE_HEADERS)
-    app.logger.info(r.text)
-    return r
+    if r.status_code != requests.codes.ok:
+        pprint.pprint(data)
+        app.logger.warn(str(r.status_code))
+        app.logger.warn(str(r.headers))
+        app.logger.warn(str(r.text))
 
 
 if __name__ == "__main__":
@@ -128,6 +198,7 @@ if __name__ == "__main__":
             "X-Line-ChannelID": config.get('linebot', 'channelID'),
             "X-Line-ChannelSecret": config.get('linebot', 'channelSecret'),
             "X-Line-Trusted-User-With-ACL": config.get('linebot', 'MID'),
+            "Content-Type": 'application/json;charset=UTF-8',
         }
     except:
         print u'請 cp linebot.cfg.default linebot.cfg 並修改裡面的設定'
