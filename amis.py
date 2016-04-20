@@ -44,37 +44,28 @@ def lookup(db, s, uid):
     global USER_LASTWORD
     cur = db.cursor()
     if isCJK(s):    # 漢語查阿美語
-        cur.execute('SELECT title FROM amis WHERE example IS NULL AND cmn LIKE ? ORDER BY LENGTH(cmn)', ('%%' +s+ '%%', ))
+        cur.execute('SELECT title FROM amis WHERE example IS NULL AND cmn LIKE ? ORDER BY LENGTH(cmn) LIMIT 3', ('%%' +s+ '%%', ))
         rows = cur.fetchall()
         if len(rows) == 0:
             return u'找不到這個詞。'
         else:
-            return u'「' +s+ u'」可能的阿美語詞有:\n' + iterrows(rows, uid) + u'請輸入號碼查詢單字。'
+            return ['options', u'有「%s」的阿美語詞' % s] + [r[0] for r in rows]
     else:           # 阿美語查字典
         s = s.lower()
-        cur.execute('SELECT cmn FROM amis WHERE title=? AND example IS NULL', (s, ))
+        cur.execute('SELECT cmn FROM amis WHERE title=? AND example IS NULL LIMIT 10', (s, ))
         rows = cur.fetchall()
         if len(rows) > 0:    # 找到了
-            USER_LASTWORD[uid] = [s,]
-            return iterrows(rows, None) + u'要看例句請輸入 0'
-        cur.execute('SELECT amis FROM fuzzy WHERE fuzz LIKE ?', ('%%' + fuzzme(s) + '%%', ))
+            if uid in USER_LASTWORD and type(USER_LASTWORD[uid]) == type([]):
+                USER_LASTWORD[uid][0] = s
+            else:
+                USER_LASTWORD[uid] = [s,]
+            return ['stropt', '%s: %s' % (s, rows[0][0]), u'要看例句嗎？', s]
+        cur.execute('SELECT amis FROM fuzzy WHERE fuzz LIKE ? LIMIT 10', ('%%' + fuzzme(s) + '%%', ))
         rows = cur.fetchall()
         if len(rows) == 0:
             return u'找不到這個詞。'
         else:
-            return u'請問你要找的是哪個詞?\n' + iterrows(rows, uid) + u'請輸入數字選擇。'
-
-def user_input(db, num, uid):
-    logging.debug(u'>>> 使用者 [%s] 輸入了 %d' % (uid, num))
-    if uid not in USER_LASTWORD:
-        return u'請重新查詢單字。'
-    choices = USER_LASTWORD[uid]
-    if num + 1 > len(choices):
-        return u'請重新選擇。'
-    if num == 0:
-        return get_example(db, choices[0])
-    word = choices[num]
-    return lookup(db, word, uid)
+            return ['options', u'請問你要查哪個詞?'] + [r[0] for r in rows]
 
 
 def get_example(db, s):
@@ -90,6 +81,19 @@ def get_example(db, s):
         r += '    %s\n' % (row[1],  )
         i += 1
     return r
+
+
+def user_input(db, num, uid):
+    print u'>>> 使用者 [%s] 輸入了 %d' % (uid, num)
+    if uid not in USER_LASTWORD:
+        return u'請重新查詢單字。'
+    choices = USER_LASTWORD[uid]
+    if num + 1 > len(choices):
+        return u'請重新選擇。'
+    if num == 0:
+        return get_example(db, choices[0])
+    word = choices[num]
+    return lookup(db, word, uid)
 
 
 def testme():
