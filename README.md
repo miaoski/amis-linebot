@@ -2,7 +2,7 @@
 ==============
 隨手紀錄一下在新的 DigtalOcean Droplet 上安裝阿美語萌典 line bot 。
 
-Line Bot 的 callback URL 需要 https ，會驗證簽章，目前正在和 LINE 工程師合作處理中。
+Line Bot 的 callback URL 需要 https ，會驗證簽章，所以目前採用 RonnyWang 建議的方法：用 Heroku 做一個小的 reverse proxy。請參考 `amis-proxy.php`。
 
 FB Messenger Bot 的前置作業，請參考 [Facebook Messenger Platform Quick Start](https://developers.facebook.com/docs/messenger-platform/quickstart) 的說明。
 
@@ -34,7 +34,7 @@ BOT 的話，參考這篇
 
 此外， `fbbot.cfg` 請放上兩行字，第一行是 Verify Token 第二行是 Page Access Token。
 
-修改 `/etc/ufw/before.rules` 並加上 port-forwarding:
+建議不要用 root 執行 Bot，請修改 `/etc/ufw/before.rules` 並加上 port-forwarding:
 ```
 *nat
 :PREROUTING ACCEPT [0:0]
@@ -42,7 +42,7 @@ BOT 的話，參考這篇
 COMMIT
 ```
 
-預設的 callback URL 是 https://miaoski.idv.tw:443/callback ，要修改的話請記得改一下 `linebot.py` 裡的路徑。
+預設的 callback URL 是 https://amis.miaoski.idv.tw:443/callback ，要修改的話請記得改一下 `linebot.py` 裡的路徑。當然目前因為 Line 不支援 Let's Encrypt 的關係，我們用的是 Heroku 上的代理 callback。
 
 
 
