@@ -44,7 +44,7 @@ def lookup(db, s, uid):
     global USER_LASTWORD
     cur = db.cursor()
     if isCJK(s):    # 漢語查阿美語
-        cur.execute('SELECT title FROM amis WHERE example IS NULL AND cmn LIKE ? ORDER BY LENGTH(cmn) LIMIT 3', ('%%' +s+ '%%', ))
+        cur.execute('SELECT title FROM amis WHERE example IS NULL AND cmn LIKE ? ORDER BY LENGTH(cmn) LIMIT 10', ('%%' +s+ '%%', ))
         rows = cur.fetchall()
         if len(rows) == 0:
             return u'找不到這個詞。'

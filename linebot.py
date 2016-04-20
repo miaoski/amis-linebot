@@ -89,7 +89,7 @@ def send_fb_msg(uid, msg):
     elif type(msg) == type([]):
         if msg[0] == 'options':         # 選擇單字
             buttons = []
-            for xs in msg[2:]:
+            for xs in msg[2:5]:         # FB 選擇最多三個
                 buttons.append({"type": "postback", "title": xs, "payload": xs})
             data['message'] = {"attachment": {"type":"template", "payload": {"template_type":"button", "text": msg[1], "buttons": buttons}}}
         elif msg[0] == 'stropt':        # 要看例句嗎
