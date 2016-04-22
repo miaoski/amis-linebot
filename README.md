@@ -2,7 +2,18 @@
 ==============
 隨手紀錄一下在新的 DigtalOcean Droplet 上安裝阿美語萌典 line bot 。
 
-Line Bot 的 callback URL 需要 https ，會驗證簽章，所以目前採用 RonnyWang 建議的方法：用 Heroku 做一個小的 reverse proxy。請參考 `amis-proxy.php`。
+Line Bot 的 callback URL 需要 https ，會驗證簽章，有幾種方法。感謝 Ronny Wang 提供方法和幫忙測試 ^^;
+
+
+關於SSL
+-------
+1. 用 Heroku 做一個小的 reverse proxy。請參考 Ronny Wang 寫的 `amis-proxy.php`。如果每天用量在 18 小時以內免費，超過的話每月 US$7
+2. 用 AWS CloudFront，收費是 US$0.14/GB
+3. LINE 目前支援 Let's Encrypt X1，並即將支援 Let's Encrypt X3 。
+
+
+FB Messenger Bot
+----------------
 
 FB Messenger Bot 的前置作業，請參考 [Facebook Messenger Platform Quick Start](https://developers.facebook.com/docs/messenger-platform/quickstart) 的說明。
 
@@ -24,7 +35,7 @@ locale-gen zh_TW.UTF-8
 vim /etc/default/locale
 ```
 
-BOT 的話，參考這篇
+Line BOT 的寫作參考了這篇文章:
 * http://qiita.com/shikajiro/items/329d660f1a457676c450
 
 
