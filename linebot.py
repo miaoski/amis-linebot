@@ -269,8 +269,9 @@ def lineTaiDict(uid, txt):
                 r = stripHTML(j['t']) + '\n'
             for h in j['h']:
                 i = 1
-                if 'reading' in h and 'T' in h:
-                    r = r + u'[%s] %s\n' % (stripHTML(h['reading']), h['T'])
+                reading = stripHTML(h.get('reading', u'發'))
+                if 'T' in h:
+                    r = r + u'%s音: %s\n' % (reading, h['T'])
                 for d in h['d']:
                     if 'type' in d:
                         word_class = u'[%s詞] ' % stripHTML(d['type'])
