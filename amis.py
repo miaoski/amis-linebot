@@ -18,6 +18,7 @@ def fuzzme(v):
             .replace('o', 'u') \
             .replace('ng', 'n') \
             .replace('g', 'n') \
+            .replace('d', 'l') \
             .replace("'", '') \
             .replace('^', '') \
             .replace('e', '')
