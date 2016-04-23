@@ -6,7 +6,6 @@ import uuid
 import re
 import logging
 import ConfigParser
-from fuzzy import fuzzme
 import requests
 import json
 import amis
@@ -214,5 +213,5 @@ if __name__ == "__main__":
     app.config['JSON_AS_ASCII'] = False     # JSON in UTF-8
     app.config['DEBUG'] = True
     context = ('fullchain.pem', 'privkey.pem') # Copy /etc/letsencrypt/live/ files to current dir
-    app.run(host = '0.0.0.0', threaded=False, port=443, ssl_context=context)
+    app.run(host = '0.0.0.0', threaded=False, port=8443, ssl_context=context)
     print 'Shutdown...'
