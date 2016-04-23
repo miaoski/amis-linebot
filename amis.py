@@ -66,9 +66,10 @@ def lookup(db, s, uid):
                 USER_LASTWORD[uid][0] = s
             else:
                 USER_LASTWORD[uid] = [s,]
-            return {'type': 'stropt', 
-                    'text': '%s: %s' % (s, rows[0][0]),
-                    'words': [s,]}
+            r = '%s: %s' % (s, rows[0][0])
+            e = getExample(db, s)
+            if len(e) > 0: r = r + '\n' + e
+            return r
         cur.execute('SELECT amis FROM fuzzy WHERE fuzz LIKE ? LIMIT 10', ('%%' + fuzzme(s) + '%%', ))
         rows = cur.fetchall()
         if len(rows) == 0:
@@ -83,13 +84,13 @@ def getExample(db, s):
     cur = db.cursor()
     cur.execute('SELECT example, cmn FROM amis WHERE title=? AND example IS NOT NULL', (s,))
     rows = cur.fetchall()
+    r = ''
     if len(rows) == 0:
-        return u'詞條 %s 沒有例句。' % s
+        return r
     i = 1
-    r = '%s:\n' % s
     for row in rows:
         r += '%d. %s\n' % (i, row[0])
-        r += '    %s\n' % (row[1],  )
+        r += u'　%s\n' % (row[1],  )
         i += 1
     return r
 
@@ -101,8 +102,6 @@ def numpadInput(db, num, uid):
     choices = USER_LASTWORD[uid]
     if num + 1 > len(choices):
         return u'請重新選擇。'
-    if num == 0:
-        return getExample(db, choices[0])
     word = choices[num]
     return lookup(db, word, uid)
 
