@@ -79,7 +79,7 @@ def lookup(db, s, uid):
                     'words': [r[0] for r in rows]}
 
 
-def get_example(db, s):
+def getExample(db, s):
     cur = db.cursor()
     cur.execute('SELECT example, cmn FROM amis WHERE title=? AND example IS NOT NULL', (s,))
     rows = cur.fetchall()
@@ -94,7 +94,7 @@ def get_example(db, s):
     return r
 
 
-def user_input(db, num, uid):
+def numpadInput(db, num, uid):
     print u'>>> 使用者 [%s] 輸入了 %d' % (uid, num)
     if uid not in USER_LASTWORD:
         return u'請重新查詢單字。'
@@ -102,7 +102,7 @@ def user_input(db, num, uid):
     if num + 1 > len(choices):
         return u'請重新選擇。'
     if num == 0:
-        return get_example(db, choices[0])
+        return getExample(db, choices[0])
     word = choices[num]
     return lookup(db, word, uid)
 
@@ -113,16 +113,16 @@ def testme():
     print 'False ==', isCJK("nga'aiho")
     print 'True ==', isCJK(u'貓')
     print lookup(db, 'pusi', 'testuser')
-    print user_input(db, 1, 'testuser')
+    print numpadInput(db, 1, 'testuser')
     print lookup(db, 'posi', 'testuser')
-    print user_input(db, 0, 'testuser')
+    print numpadInput(db, 0, 'testuser')
     print lookup(db, 'pusi\'', 'testuser')
-    print user_input(db, 2, 'testuser')
+    print numpadInput(db, 2, 'testuser')
     print lookup(db, 'pusi^', 'testuser')
-    print user_input(db, 3, 'testuser')
+    print numpadInput(db, 3, 'testuser')
     print lookup(db, u'貓', 'testuser')
-    print user_input(db, 2, 'testuser')
-    print user_input(db, 0, 'testuser')
+    print numpadInput(db, 2, 'testuser')
+    print numpadInput(db, 0, 'testuser')
     sys.exit(10)
 
 

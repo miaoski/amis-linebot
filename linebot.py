@@ -18,6 +18,7 @@ app.logger.setLevel(logging.DEBUG)
 DATABASE = 'dict-amis.sq3'
 LINE_ENDPOINT = "https://trialbot-api.line.me"
 USER_LASTWORD = {}
+USER_STAT = {}
 RE_NUM = re.compile(r'^[0-9]+$')
 
 def connect_db():
@@ -56,12 +57,12 @@ def fbbot():
             uid = messaging['sender']['id']
             if 'message' in messaging:
                 if 'text' not in messaging['message']:
-                    send_fb_msg(uid, u'本機器人只接受文字查詢哦!')
+                    sendFBMsg(uid, u'本機器人只接受文字查詢哦!')
                     return flask.Response(status=200)
                 msg = messaging['message']['text']
                 app.logger.info(u'UID %d 查詢 %s' % (uid, msg))
                 r = amis.lookup(db, msg, uid)
-                send_fb_msg(uid, r)
+                sendFBMsg(uid, r)
             if 'postback' in messaging:
                 if 'payload' not in messaging['postback']:
                     app.logger.warn('How can I know a postback without payload?')
@@ -73,11 +74,11 @@ def fbbot():
                     r = u'請輸入您要查詢的單字。'
                 elif pb.startswith('**-'):
                     app.logger.info(u'UID %d 看例句 %s' % (uid, pb))
-                    r = amis.get_example(db, pb[3:])
+                    r = amis.getExample(db, pb[3:])
                 else:
                     app.logger.info(u'UID %d 選取 %s' % (uid, pb))
                     r = amis.lookup(db, pb, uid)
-                send_fb_msg(uid, r)
+                sendFBMsg(uid, r)
         return flask.Response(status=200)
 
 
@@ -86,7 +87,7 @@ def chunks(l, n):
     for i in range(0, len(l), n):
         yield l[i:i+n]
 
-def send_fb_msg(uid, msg):
+def sendFBMsg(uid, msg):
     url = 'https://graph.facebook.com/v2.6/me/messages?access_token=%s' % FB_APP_TOKEN
     data = {'recipient': {'id': uid}}
     if isinstance(msg, types.StringTypes):
@@ -135,7 +136,7 @@ def isValidChannelSignature(exp, raw):
         return True
 
 @app.route('/callback', methods=['POST',])
-def line_callback():
+def linebot():
     import urllib
     if 'X-Line-Channelsignature' not in flask.request.headers:
         app.logger.warn('No Channelsignature')
@@ -158,7 +159,7 @@ def line_callback():
         if req["eventType"] == "138311609100106403":
             pprint.pprint(req)
             uid = req["content"]['params'][0]
-            send_text(uid, u"Nga'ayho!  歡迎使用阿美語萌典 Line 機器人!")
+            sendLineText(uid, u"Nga'ayho!  歡迎使用阿美語萌典 Line 機器人!")
         elif req["eventType"] == "138311609000106303":
             uid = req["content"]["from"]
             txt = req["content"]["text"]
@@ -168,13 +169,13 @@ def line_callback():
             txt = txt.strip()
             if RE_NUM.match(txt):
                 choice = int(txt)
-                r = amis.user_input(db, choice, uid)
+                r = amis.numpadInput(db, choice, uid)
             else:
                 r = amis.lookup(db, txt, uid)
-            send_text(uid, r)
+            sendLineText(uid, r)
     return flask.Response(status=200)
 
-def send_text(to, msg):
+def sendLineText(to, msg):
     data = { "contentType": 1, "toType": 1 }
     if isinstance(msg, types.StringTypes):
         data['text'] = msg
@@ -185,9 +186,9 @@ def send_text(to, msg):
             data['text'] = u'%s\n請輸入 0 查看例句' % msg['text']
     else:
         app.logger.error('Unknown msg %s', msg)
-    events(to, data)
+    lineEvents(to, data)
 
-def events(to, content):
+def lineEvents(to, content):
     data = {
         "to": [to,],
         "toChannel": 1383378250,
