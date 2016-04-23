@@ -241,7 +241,7 @@ def lineMoeDict(uid, txt):
                     r = r + '%d. %s %s\n' % (i, word_class, stripHTML(d['f']))
                     if 'e' in d:
                         for ex in d['e']:
-                            r = r + '   %s\n' % stripHTML(ex)
+                            r = r + u'　%s\n' % stripHTML(ex)
                     i = i + 1
         elif get.status_code == 404:
             r = u'查無此字。'
@@ -280,7 +280,7 @@ def lineTaiDict(uid, txt):
                     r = r + '%d. %s%s\n' % (i, word_class, stripHTML(d['f']))
                     if 'e' in d:
                         for ex in d['e']:
-                            r = r + '   %s\n' % renderMoeExample(stripHTML(ex))
+                            r = r + u'　%s\n' % renderMoeExample(stripHTML(ex))
                     i = i + 1
             # MP3 in https://1763c5ee9859e0316ed6-db85b55a6a3fbe33f09b9245992383bd.ssl.cf1.rackcdn.com/04208.mp3
             # j['h'][0]['_'] left pad 0 to 5 digits
