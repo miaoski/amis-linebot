@@ -22,7 +22,8 @@ USER_DICT = {}
 USER_DICT_DEFAULT = 'fey'
 SUPPORTED_DICT = {
         'fey': u'阿美語(方敏英)字典', 
-        'moe': u'國語萌典'}
+        'moe': u'國語萌典',
+        'tai': u'臺灣閩南語'}
 RE_NUM = re.compile(r'^[0-9]+$')
 
 def connect_db():
@@ -186,6 +187,8 @@ def linebot():
                 lineAmisDict(uid, txt)
             elif USER_DICT[uid] == 'moe':
                 lineMoeDict(uid, txt)
+            elif USER_DICT[uid] == 'tai':
+                lineTaiDict(uid, txt)
             else:
                 app.logger.error('Should not be here.  Fatal 1.')
     return flask.Response(status=200)
@@ -219,25 +222,25 @@ def lineMoeDict(uid, txt):
     # copied from stackoverflow
     HANUNI = re.compile(ur'^[⺀-⺙⺛-⻳⼀-⿕々〇〡-〩〸-〺〻㐀-䶵一-鿃豈-鶴侮-頻並-龎]+$', re.UNICODE)
     if HANUNI.match(txt):
-        get = requests.get('https://www.moedict.tw/%s.json' % txt)
+        get = requests.get('https://www.moedict.tw/a/%s.json' % txt)
         if get.status_code == 200:
             j = get.json()
-            if 'radical' in j and 'non_radical_stroke_count' in j:
-                r = u'%s (%s部%d劃)\n' % (stripHTML(j['title']), stripHTML(j['radical']), j['non_radical_stroke_count'])
+            if 'r' in j and 'n' in j:
+                r = u'%s (%s部%d劃)\n' % (stripHTML(j['t']), stripHTML(j['r']), j['n'])
             else:
-                r = stripHTML(j['title']) + '\n'
-            for h in j['heteronyms']:
+                r = stripHTML(j['t']) + '\n'
+            for h in j['h']:
                 i = 1
-                if 'bopomofo' in h and 'pinyin' in h:
-                    r = r + u'%s %s\n' % (h['bopomofo'], h['pinyin'])
-                for d in h['definitions']:
+                if 'b' in h and 'p' in h:
+                    r = r + u'%s %s\n' % (h['b'], h['p'])
+                for d in h['d']:
                     if 'type' in d:
                         word_class = u'[%s詞]' % stripHTML(d['type'])
                     else:
                         word_class = ''
-                    r = r + '%d. %s %s\n' % (i, word_class, stripHTML(d['def']))
-                    if 'example' in d:
-                        for ex in d['example']:
+                    r = r + '%d. %s %s\n' % (i, word_class, stripHTML(d['f']))
+                    if 'e' in d:
+                        for ex in d['e']:
                             r = r + '   %s\n' % stripHTML(ex)
                     i = i + 1
         elif get.status_code == 404:
@@ -252,9 +255,56 @@ def lineMoeDict(uid, txt):
     sendLineText(uid, r)
 
 
+def lineTaiDict(uid, txt):
+    print u'UID %s 查台語萌典: %s' % (uid, txt)
+    # copied from stackoverflow
+    HANUNI = re.compile(ur'^[⺀-⺙⺛-⻳⼀-⿕々〇〡-〩〸-〺〻㐀-䶵一-鿃豈-鶴侮-頻並-龎]+$', re.UNICODE)
+    if HANUNI.match(txt):
+        get = requests.get('https://www.moedict.tw/t/%s.json' % txt)
+        if get.status_code == 200:
+            j = get.json()
+            if 'r' in j and 'n' in j:
+                r = u'%s (%s部%d劃)\n' % (stripHTML(j['t']), stripHTML(j['r']), j['n'])
+            else:
+                r = stripHTML(j['t']) + '\n'
+            for h in j['h']:
+                i = 1
+                if 'reading' in h and 'T' in h:
+                    r = r + u'[%s] %s\n' % (stripHTML(h['reading']), h['T'])
+                for d in h['d']:
+                    if 'type' in d:
+                        word_class = u'[%s詞] ' % stripHTML(d['type'])
+                    else:
+                        word_class = ''
+                    r = r + '%d. %s%s\n' % (i, word_class, stripHTML(d['f']))
+                    if 'e' in d:
+                        for ex in d['e']:
+                            r = r + '   %s\n' % renderMoeExample(stripHTML(ex))
+                    i = i + 1
+            # MP3 in https://1763c5ee9859e0316ed6-db85b55a6a3fbe33f09b9245992383bd.ssl.cf1.rackcdn.com/04208.mp3
+            # j['h'][0]['_'] left pad 0 to 5 digits
+        elif get.status_code == 404:
+            r = u'查無此字。'
+        else:
+            pprint.pprint(txt)
+            app.logger.warn(str(get.status_code))
+            app.logger.warn(str(get.text))
+            r = u'系統錯誤，請稍候再試。'
+    else:
+        r = u'查詢字串內含非漢字的字元，請重新輸入。'
+    sendLineText(uid, r)
+
+
+def renderMoeExample(s):
+    return s.replace(u'\ufff9', '') \
+            .replace(u'\ufffa', '(') \
+            .replace(u'\ufffb', ')')
+
+
 def stripHTML(s):
-    TAG_RE = re.compile(r'<[^>]+>')
-    return TAG_RE.sub('', s)
+    #TAG_RE = re.compile(r'<[^>]+>')
+    #return TAG_RE.sub('', s)
+    return s.replace('`', '').replace('~', '')
 
 
 def sendLineText(to, msg):
