@@ -216,24 +216,37 @@ def lineAmisDict(uid, txt):
 
 def lineMoeDict(uid, txt):
     print u'UID %s 查國語萌典: %s' % (uid, txt)
+    # copied from stackoverflow
     HANUNI = re.compile(ur'^[⺀-⺙⺛-⻳⼀-⿕々〇〡-〩〸-〺〻㐀-䶵一-鿃豈-鶴侮-頻並-龎]+$', re.UNICODE)
     if HANUNI.match(txt):
         get = requests.get('https://www.moedict.tw/%s.json' % txt)
-        if get.status_code != requests.codes.ok:
-            pprint.pprint(txt)
-            app.logger.warn(str(get.status_code))
-            app.logger.warn(str(get.text))
-        else:
+        if get.status_code == 200:
             j = get.json()
-            i = 1
-            r = ''
+            if 'radical' in j and 'non_radical_stroke_count' in j:
+                r = u'%s (%s部%d劃)\n' % (stripHTML(j['title']), stripHTML(j['radical']), j['non_radical_stroke_count'])
+            else:
+                r = stripHTML(j['title']) + '\n'
             for h in j['heteronyms']:
+                i = 1
+                if 'bopomofo' in h and 'pinyin' in h:
+                    r = r + u'%s %s\n' % (h['bopomofo'], h['pinyin'])
                 for d in h['definitions']:
-                    r = r + '%d. %s\n' % (i, stripHTML(d['def']))
+                    if 'type' in d:
+                        word_class = u'[%s詞]' % stripHTML(d['type'])
+                    else:
+                        word_class = ''
+                    r = r + '%d. %s %s\n' % (i, word_class, stripHTML(d['def']))
                     if 'example' in d:
                         for ex in d['example']:
                             r = r + '   %s\n' % stripHTML(ex)
                     i = i + 1
+        elif get.status_code == 404:
+            r = u'查無此字。'
+        else:
+            pprint.pprint(txt)
+            app.logger.warn(str(get.status_code))
+            app.logger.warn(str(get.text))
+            r = u'系統錯誤，請稍候再試。'
     else:
         r = u'查詢字串內含非漢字的字元，請重新輸入。'
     sendLineText(uid, r)
