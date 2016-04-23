@@ -54,7 +54,9 @@ def lookup(db, s, uid):
         if len(rows) == 0:
             return u'找不到這個詞。'
         else:
-            return ['options', u'有「%s」的阿美語詞' % s] + [r[0] for r in rows]
+            return {'type': 'options',
+                    'text': u'有「%s」的阿美語詞' % s, 
+                    'words': [r[0] for r in rows]}
     else:           # 阿美語查字典
         s = s.lower()
         cur.execute('SELECT cmn FROM amis WHERE title=? AND example IS NULL LIMIT 10', (s, ))
@@ -64,13 +66,17 @@ def lookup(db, s, uid):
                 USER_LASTWORD[uid][0] = s
             else:
                 USER_LASTWORD[uid] = [s,]
-            return ['stropt', '%s: %s' % (s, rows[0][0]), u'要看例句嗎？', s]
+            return {'type': 'stropt', 
+                    'text': '%s: %s' % (s, rows[0][0]),
+                    'words': [s,]}
         cur.execute('SELECT amis FROM fuzzy WHERE fuzz LIKE ? LIMIT 10', ('%%' + fuzzme(s) + '%%', ))
         rows = cur.fetchall()
         if len(rows) == 0:
             return u'找不到這個詞。'
         else:
-            return ['options', u'請問你要查哪個詞?'] + [r[0] for r in rows]
+            return {'type': 'options', 
+                    'text': u'請問你要查哪個詞?',
+                    'words': [r[0] for r in rows]}
 
 
 def get_example(db, s):

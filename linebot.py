@@ -10,6 +10,7 @@ import requests
 import json
 import amis
 import pprint
+import types
 
 app = flask.Flask(__name__)
 app.logger.setLevel(logging.DEBUG)
@@ -80,23 +81,32 @@ def fbbot():
         return flask.Response(status=200)
 
 
+# http://stackoverflow.com/questions/312443/how-do-you-split-a-list-into-evenly-sized-chunks-in-python
+def chunks(l, n):
+    for i in range(0, len(l), n):
+        yield l[i:i+n]
+
 def send_fb_msg(uid, msg):
     url = 'https://graph.facebook.com/v2.6/me/messages?access_token=%s' % FB_APP_TOKEN
     data = {'recipient': {'id': uid}}
-    if type(msg) in [type('str'), type(u'unicode')]:
+    if isinstance(msg, types.StringTypes):
         data['message'] = {'text': msg}
-    elif type(msg) == type([]):
-        if msg[0] == 'options':         # 選擇單字
-            buttons = []
-            for xs in msg[2:5]:         # FB 選擇最多三個
-                buttons.append({"type": "postback", "title": xs, "payload": xs})
-            data['message'] = {"attachment": {"type":"template", "payload": {"template_type":"button", "text": msg[1], "buttons": buttons}}}
-        elif msg[0] == 'stropt':        # 要看例句嗎
-            send_fb_msg(uid, msg[1])
+    elif isinstance(msg, types.DictType):
+        if msg['type'] == 'options':                # 選擇單字
+            elements = []
+            i = 1
+            for words in chunks(msg['words'], 3):   # FB 每個 button 最多三個選項
+                buttons = [{"type": "postback", "title": xs, "payload": xs} for xs in words]
+                elements.append({'title': '%s (%d)' % (msg['text'], i), 'buttons': buttons})
+                i = i + 1
+            # pprint.pprint(elements)
+            data['message'] = {"attachment": {"type":"template", "payload": {"template_type":"generic", 'elements': elements}}}
+        elif msg['type'] == 'stropt':               # 要看例句嗎
+            send_fb_msg(uid, msg['text'])
             data['message'] = {"attachment": {"type":"template", "payload": { 
-                "template_type":"button", "text": msg[2], "buttons": [
-                    {"type": "postback", "title": u'是', "payload": '**-' + msg[3]},
-                    {"type": "postback", "title": u'否', "payload": '**SkipExample'},
+                "template_type":"button", "text": msg['text'], "buttons": [
+                    {"type": "postback", "title": u'看例句', "payload": '**-' + msg['words'][0]},
+                    {"type": "postback", "title": u'不看', "payload": '**SkipExample'},
                     ]}}}
         else:
             app.logger.error('Unknown msg %s', msg)
@@ -167,13 +177,15 @@ def line_callback():
 
 def send_text(to, msg):
     data = { "contentType": 1, "toType": 1 }
-    if type(msg) in [type('str'), type(u'unicode')]:
+    if isinstance(msg, types.StringTypes):
         data['text'] = msg
-    elif type(msg) == type([]):
-        if msg[0] == 'options':         # 選擇單字
-            data['text'] = msg[1] +'\n'+ amis.iterrows([[x,] for x in msg[2:]], to)
-        elif msg[0] == 'stropt':        # 要看例句嗎
-            data['text'] = u'%s\n請輸入 0 查看例句' % msg[1]
+    elif isinstance(msg, types.DictType):
+        if msg['type'] == 'options':        # 選擇單字
+            data['text'] = msg['text'] +'\n'+ amis.iterrows([[x,] for x in msg['words']], to)
+        elif msg['type'] == 'stropt':       # 要看例句嗎
+            data['text'] = u'%s\n請輸入 0 查看例句' % msg['text']
+    else:
+        app.logger.error('Unknown msg %s', msg)
     events(to, data)
 
 def events(to, content):
