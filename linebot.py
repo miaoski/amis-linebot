@@ -148,10 +148,16 @@ def line_callback():
     db = amis.loaddb()
     for req in flask.request.json["result"]:
         if req["eventType"] == "138311609100106403":
-            send_text(req["from"], u"Nga'ayho!  Mikamsia to\n謝謝你使用阿美語萌典 Line 機器人!\n")
+            pprint.pprint(req)
+            uid = req["content"]['params'][0]
+            send_text(uid, u"Nga'ayho!  歡迎使用阿美語萌典 Line 機器人!")
         elif req["eventType"] == "138311609000106303":
             uid = req["content"]["from"]
-            txt = req["content"]["text"].strip()
+            txt = req["content"]["text"]
+            if txt is None:
+                pprint.pprint(req)
+                return flask.Response(status=470)
+            txt = txt.strip()
             if RE_NUM.match(txt):
                 choice = int(txt)
                 r = amis.user_input(db, choice, uid)
@@ -200,7 +206,7 @@ if __name__ == "__main__":
             "X-Line-ChannelID": config.get('linebot', 'channelID'),
             "X-Line-ChannelSecret": config.get('linebot', 'channelSecret'),
             "X-Line-Trusted-User-With-ACL": config.get('linebot', 'MID'),
-            "Content-Type": 'application/json;charset=UTF-8',
+            "Content-Type": 'application/json; charset=UTF-8',
         }
     except:
         print u'請 cp linebot.cfg.default linebot.cfg 並修改裡面的設定'
