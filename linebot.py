@@ -102,7 +102,6 @@ def send_fb_msg(uid, msg):
             # pprint.pprint(elements)
             data['message'] = {"attachment": {"type":"template", "payload": {"template_type":"generic", 'elements': elements}}}
         elif msg['type'] == 'stropt':               # 要看例句嗎
-            send_fb_msg(uid, msg['text'])
             data['message'] = {"attachment": {"type":"template", "payload": { 
                 "template_type":"button", "text": msg['text'], "buttons": [
                     {"type": "postback", "title": u'看例句', "payload": '**-' + msg['words'][0]},
