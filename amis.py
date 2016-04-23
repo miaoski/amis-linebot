@@ -24,7 +24,11 @@ def fuzzme(v):
             .replace('e', '')
 
 def isCJK(s):
-    return re.match(r'[\u00-\uff]+', s) is None
+    try:
+        s = s.strip()
+    except:
+        pass
+    return re.match(r'^[a-zA-Z\'"^:]+$', s) is None
 
 
 def iterrows(cur, uid = None):
