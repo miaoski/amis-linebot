@@ -18,7 +18,11 @@ app.logger.setLevel(logging.DEBUG)
 DATABASE = 'dict-amis.sq3'
 LINE_ENDPOINT = "https://trialbot-api.line.me"
 USER_LASTWORD = {}
-USER_STAT = {}
+USER_DICT = {}
+USER_DICT_DEFAULT = 'fey'
+SUPPORTED_DICT = {
+        'fey': u'阿美語(方敏英)字典', 
+        'moe': u'國語萌典'}
 RE_NUM = re.compile(r'^[0-9]+$')
 
 def connect_db():
@@ -60,8 +64,15 @@ def fbbot():
                     sendFBMsg(uid, u'本機器人只接受文字查詢哦!')
                     return flask.Response(status=200)
                 msg = messaging['message']['text']
+                try:
+                    msg = msg.strip()
+                except:
+                    pass
                 app.logger.info(u'UID %d 查詢 %s' % (uid, msg))
-                r = amis.lookup(db, msg, uid)
+                if msg[0] in ('/', '?'):
+                    r = command(uid, msg)
+                else:
+                    r = amis.lookup(db, msg, uid)
                 sendFBMsg(uid, r)
             if 'postback' in messaging:
                 if 'payload' not in messaging['postback']:
@@ -154,7 +165,6 @@ def linebot():
         app.logger.warn('There is no result in request.json')
         app.logger.info(flask.request.json)
         return flask.Response(status=470)
-    db = amis.loaddb()
     for req in flask.request.json["result"]:
         if req["eventType"] == "138311609100106403":
             pprint.pprint(req)
@@ -167,13 +177,72 @@ def linebot():
                 pprint.pprint(req)
                 return flask.Response(status=470)
             txt = txt.strip()
-            if RE_NUM.match(txt):
-                choice = int(txt)
-                r = amis.numpadInput(db, choice, uid)
+            if not hasValidDict(uid):
+                sendLineText(uid, u'系統錯誤，已切回阿美語(方敏英)字典。')
+            elif txt[0] in ('/', '?'):            # 功能鍵
+                r = command(uid, txt)
+                sendLineText(uid, r)
+            elif USER_DICT[uid] == 'fey':
+                lineAmisDict(uid, txt)
+            elif USER_DICT[uid] == 'moe':
+                lineMoeDict(uid, txt)
             else:
-                r = amis.lookup(db, txt, uid)
-            sendLineText(uid, r)
+                app.logger.error('Should not be here.  Fatal 1.')
     return flask.Response(status=200)
+
+
+def hasValidDict(uid):
+    global USER_DICT
+    if uid not in USER_DICT:
+        USER_DICT[uid] = USER_DICT_DEFAULT
+    if USER_DICT[uid] in SUPPORTED_DICT:
+        return True
+    else:
+        app.logger.error('Unknown USER_DICT: %s' % uid)
+        pprint.pprint(USER_DICT)
+        USER_DICT[uid] = USER_DICT_DEFAULT
+        return False
+
+
+def lineAmisDict(uid, txt):
+    db = amis.loaddb()
+    if RE_NUM.match(txt):             # Line 輸入數字鍵查詢候選詞
+        choice = int(txt)
+        r = amis.numpadInput(db, choice, uid)
+    else:
+        r = amis.lookup(db, txt, uid)
+    sendLineText(uid, r)
+
+
+def lineMoeDict(uid, txt):
+    print u'UID %s 查國語萌典: %s' % (uid, txt)
+    HANUNI = re.compile(ur'^[⺀-⺙⺛-⻳⼀-⿕々〇〡-〩〸-〺〻㐀-䶵一-鿃豈-鶴侮-頻並-龎]+$', re.UNICODE)
+    if HANUNI.match(txt):
+        get = requests.get('https://www.moedict.tw/%s.json' % txt)
+        if get.status_code != requests.codes.ok:
+            pprint.pprint(txt)
+            app.logger.warn(str(get.status_code))
+            app.logger.warn(str(get.text))
+        else:
+            j = get.json()
+            i = 1
+            r = ''
+            for h in j['heteronyms']:
+                for d in h['definitions']:
+                    r = r + '%d. %s\n' % (i, stripHTML(d['def']))
+                    if 'example' in d:
+                        for ex in d['example']:
+                            r = r + '   %s\n' % stripHTML(ex)
+                    i = i + 1
+    else:
+        r = u'查詢字串內含非漢字的字元，請重新輸入。'
+    sendLineText(uid, r)
+
+
+def stripHTML(s):
+    TAG_RE = re.compile(r'<[^>]+>')
+    return TAG_RE.sub('', s)
+
 
 def sendLineText(to, msg):
     data = { "contentType": 1, "toType": 1 }
@@ -202,6 +271,22 @@ def lineEvents(to, content):
         app.logger.warn(str(r.status_code))
         app.logger.warn(str(r.headers))
         app.logger.warn(str(r.text))
+
+
+def command(uid, cmd):
+    cmd = cmd.lower()
+    general_help_msg = u'/ 或 ?: 本使用說明\n'
+    for k,v in SUPPORTED_DICT.iteritems():
+        general_help_msg += u'/%s : 切換至%s\n' % (k, v)
+    hasValidDict(uid)
+    if len(cmd) < 2 or cmd == '/?' or cmd == '/h':
+        curdict = u'您目前使用的是: %s' % SUPPORTED_DICT.get(USER_DICT[uid], u'不明的外星字典')
+        return curdict + '\n' + general_help_msg
+    for k,v in SUPPORTED_DICT.iteritems():
+        if cmd[1:] == k:
+            USER_DICT[uid] = cmd[1:]
+            return u'已切換至%s' % v
+    return general_help_msg
 
 
 if __name__ == "__main__":
