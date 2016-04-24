@@ -23,7 +23,8 @@ USER_DICT_DEFAULT = 'fey'
 SUPPORTED_DICT = {
         'fey': u'阿美語(方敏英)字典', 
         'moe': u'國語萌典',
-        'tai': u'臺灣閩南語'}
+        'tai': u'臺灣閩南語',
+        'hak': u'客語萌典'}
 RE_NUM = re.compile(r'^[0-9]+$')
 
 def connect_db():
@@ -88,6 +89,10 @@ def fbbot():
                     r = lineTaiDict(uid, txt)
                     for xs in fbSplitMsg(r):
                         sendFBMsg(uid, xs)
+                elif USER_DICT[uid] == 'hak':
+                    r = lineHakDict(uid, txt)
+                    for xs in fbSplitMsg(r):
+                        sendFBMsg(uid, xs)
                 else:
                     app.logger.error('Should not be here.  Fatal 1.')
             if 'postback' in messaging:
@@ -110,17 +115,20 @@ def fbbot():
 
 
 def fbSplitMsg(s):
-    r = ''
-    for x in s.split('\n'):
-        if len(x) >= 300:       # 超過 300 個字元的我們就算了
-            print u'丟掉超過300字的字串:', x
-            continue
-        if len(r) + len(x) < 300:
-            r = r + x + '\n'
-        else:
-            yield r
-            r = x + '\n'
-    yield r
+    if not isinstance(s, types.StringTypes):
+        yield s
+    else:
+        r = ''
+        for x in s.split('\n'):
+            if len(x) >= 300:       # 超過 300 個字元的我們就算了
+                print u'丟掉超過300字的字串:', x
+                continue
+            if len(r) + len(x) < 300:
+                r = r + x + '\n'
+            else:
+                yield r
+                r = x + '\n'
+        yield r
 
 
 # http://stackoverflow.com/questions/312443/how-do-you-split-a-list-into-evenly-sized-chunks-in-python
@@ -220,6 +228,9 @@ def linebot():
             elif USER_DICT[uid] == 'tai':
                 r = lineTaiDict(uid, txt)
                 sendLineText(uid, r)
+            elif USER_DICT[uid] == 'hak':
+                r = lineHakDict(uid, txt)
+                sendLineText(uid, r)
             else:
                 app.logger.error('Should not be here.  Fatal 1.')
     return flask.Response(status=200)
@@ -275,6 +286,8 @@ def lineMoeDict(uid, txt):
                         for ex in d['e']:
                             r = r + u'　%s\n' % stripHTML(ex)
                     i = i + 1
+                if 's' in h:
+                    r = r + u'相似詞: %s' % stripHTML(h['s'])
             return r
         elif get.status_code == 404:
             return u'查無此字。'
@@ -314,8 +327,10 @@ def lineTaiDict(uid, txt):
                     r = r + '%d. %s%s\n' % (i, word_class, stripHTML(d['f']))
                     if 'e' in d:
                         for ex in d['e']:
-                            r = r + u'　%s\n' % renderMoeExample(stripHTML(ex))
+                            r = r + u'%s\n' % renderMoeExample(stripHTML(ex))
                     i = i + 1
+                if 's' in h:
+                    r = r + u'相似詞: %s' % stripHTML(h['s'])
             return r
             # MP3 in https://1763c5ee9859e0316ed6-db85b55a6a3fbe33f09b9245992383bd.ssl.cf1.rackcdn.com/04208.mp3
             # j['h'][0]['_'] left pad 0 to 5 digits
@@ -331,11 +346,53 @@ def lineTaiDict(uid, txt):
     return 
 
 
+def lineHakDict(uid, txt):
+    print u'UID %s 查客語萌典: %s' % (uid, txt)
+    # copied from stackoverflow
+    HANUNI = re.compile(ur'^[⺀-⺙⺛-⻳⼀-⿕々〇〡-〩〸-〺〻㐀-䶵一-鿃豈-鶴侮-頻並-龎]+$', re.UNICODE)
+    r = 'undefined'
+    if HANUNI.match(txt):
+        get = requests.get('https://www.moedict.tw/h/%s.json' % txt)
+        if get.status_code == 200:
+            j = get.json()
+            r = stripHTML(j['t']) + '\n'
+            for h in j['h']:
+                i = 1
+                reading = stripHTML(h.get('reading', u'發'))
+                if 'p' in h:
+                    r = r + h['p'].replace(u'\u20de', '') + '\n'    # 不要四方框
+                for d in h['d']:
+                    if 'type' in d and d['type'] != '':
+                        word_class = u'[%s詞] ' % stripHTML(d['type'])
+                    else:
+                        word_class = ''
+                    r = r + '%d. %s%s\n' % (i, word_class, stripHTML(d['f']))
+                    if 'e' in d:
+                        for ex in d['e']:
+                            r = r + u'%s\n' % renderMoeExample(stripHTML(ex))
+                    i = i + 1
+                if 's' in h:
+                    r = r + u'相似詞: %s' % stripHTML(h['s'])
+            return r
+            # MP3 in https://1763c5ee9859e0316ed6-db85b55a6a3fbe33f09b9245992383bd.ssl.cf1.rackcdn.com/04208.mp3
+            # j['h'][0]['='] left pad 0 to 5 digits
+        elif get.status_code == 404:
+            return u'查無此字。'
+        else:
+            pprint.pprint(txt)
+            app.logger.warn(str(get.status_code))
+            app.logger.warn(str(get.text))
+            return u'系統錯誤，請稍候再試。'
+    else:
+        return u'查詢字串內含非漢字的字元，請重新輸入。'
+    return 
+
+
 def renderMoeExample(s):
-    r = s.replace(u'\ufff9', '') \
-         .replace(u'\ufffa', ' ') \
-         .replace(u'\ufffb', ' (') + ')'
-    return r.replace('()', '')              # XXX: Dirty Hack
+    r = s.replace(u'\ufff9', u'　') \
+         .replace(u'\ufffa', u'\n　') \
+         .replace(u'\ufffb', u'\n　(') + ')'
+    return r.replace(u'\n　()', '')           # XXX: Dirty Hack
 
 
 def stripHTML(s):
