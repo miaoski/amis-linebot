@@ -64,17 +64,28 @@ def fbbot():
                 if 'text' not in messaging['message']:
                     sendFBMsg(uid, u'本機器人只接受文字查詢哦!')
                     return flask.Response(status=200)
-                msg = messaging['message']['text']
+                txt = messaging['message']['text']
                 try:
-                    msg = msg.strip()
+                    txt = txt.strip()
                 except:
                     pass
-                app.logger.info(u'UID %d 查詢 %s' % (uid, msg))
-                if msg[0] in ('/', '?'):
-                    r = command(uid, msg)
+                app.logger.info(u'UID %d 查詢 %s' % (uid, txt))
+                if not hasValidDict(uid):
+                    sendLineText(uid, u'系統錯誤，已切回阿美語(方敏英)字典。')
+                elif txt[0] in ('/', '?'):            # 功能鍵
+                    r = command(uid, txt)
+                    sendFBMsg(uid, r)
+                elif USER_DICT[uid] == 'fey':
+                    r = lineAmisDict(uid, txt)
+                    sendFBMsg(uid, r)
+                elif USER_DICT[uid] == 'moe':
+                    r = lineMoeDict(uid, txt)
+                    sendFBMsg(uid, r)
+                elif USER_DICT[uid] == 'tai':
+                    r = lineTaiDict(uid, txt)
+                    sendFBMsg(uid, r)
                 else:
-                    r = amis.lookup(db, msg, uid)
-                sendFBMsg(uid, r)
+                    app.logger.error('Should not be here.  Fatal 1.')
             if 'postback' in messaging:
                 if 'payload' not in messaging['postback']:
                     app.logger.warn('How can I know a postback without payload?')
@@ -99,32 +110,32 @@ def chunks(l, n):
     for i in range(0, len(l), n):
         yield l[i:i+n]
 
-def sendFBMsg(uid, msg):
+def sendFBMsg(uid, txt):
     url = 'https://graph.facebook.com/v2.6/me/messages?access_token=%s' % FB_APP_TOKEN
     data = {'recipient': {'id': uid}}
-    if isinstance(msg, types.StringTypes):
-        data['message'] = {'text': msg}
-    elif isinstance(msg, types.DictType):
-        if msg['type'] == 'options':                # 選擇單字
+    if isinstance(txt, types.StringTypes):
+        data['message'] = {'text': txt}
+    elif isinstance(txt, types.DictType):
+        if txt['type'] == 'options':                # 選擇單字
             elements = []
             i = 1
-            for words in chunks(msg['words'], 3):   # FB 每個 button 最多三個選項
+            for words in chunks(txt['words'], 3):   # FB 每個 button 最多三個選項
                 buttons = [{"type": "postback", "title": xs, "payload": xs} for xs in words]
-                elements.append({'title': '%s (%d)' % (msg['text'], i), 'buttons': buttons})
+                elements.append({'title': '%s (%d)' % (txt['text'], i), 'buttons': buttons})
                 i = i + 1
             # pprint.pprint(elements)
             data['message'] = {"attachment": {"type":"template", "payload": {"template_type":"generic", 'elements': elements}}}
-        elif msg['type'] == 'stropt':               # 要看例句嗎
+        elif txt['type'] == 'stropt':               # 要看例句嗎
             data['message'] = {"attachment": {"type":"template", "payload": { 
-                "template_type":"button", "text": msg['text'], "buttons": [
-                    {"type": "postback", "title": u'看例句', "payload": '**-' + msg['words'][0]},
+                "template_type":"button", "text": txt['text'], "buttons": [
+                    {"type": "postback", "title": u'看例句', "payload": '**-' + txt['words'][0]},
                     {"type": "postback", "title": u'不看', "payload": '**SkipExample'},
                     ]}}}
         else:
-            app.logger.error('Unknown msg %s', msg)
+            app.logger.error('Unknown msg %s', txt)
             return
     else:
-        app.logger.error('Unknown type %s', str(type(msg)))
+        app.logger.error('Unknown type %s', str(type(txt)))
         return
     # app.logger.info('response to %d' % uid)
     r = requests.post(url, data=json.dumps(data), headers={'Content-Type': 'application/json'})
@@ -168,7 +179,6 @@ def linebot():
         return flask.Response(status=470)
     for req in flask.request.json["result"]:
         if req["eventType"] == "138311609100106403":
-            pprint.pprint(req)
             uid = req["content"]['params'][0]
             sendLineText(uid, u"Nga'ayho!  歡迎使用阿美語萌典 Line 機器人!")
         elif req["eventType"] == "138311609000106303":
@@ -184,11 +194,14 @@ def linebot():
                 r = command(uid, txt)
                 sendLineText(uid, r)
             elif USER_DICT[uid] == 'fey':
-                lineAmisDict(uid, txt)
+                r = lineAmisDict(uid, txt)
+                sendLineText(uid, r)
             elif USER_DICT[uid] == 'moe':
-                lineMoeDict(uid, txt)
+                r = lineMoeDict(uid, txt)
+                sendLineText(uid, r)
             elif USER_DICT[uid] == 'tai':
-                lineTaiDict(uid, txt)
+                r = lineTaiDict(uid, txt)
+                sendLineText(uid, r)
             else:
                 app.logger.error('Should not be here.  Fatal 1.')
     return flask.Response(status=200)
@@ -214,13 +227,14 @@ def lineAmisDict(uid, txt):
         r = amis.numpadInput(db, choice, uid)
     else:
         r = amis.lookup(db, txt, uid)
-    sendLineText(uid, r)
+    return r
 
 
 def lineMoeDict(uid, txt):
     print u'UID %s 查國語萌典: %s' % (uid, txt)
     # copied from stackoverflow
     HANUNI = re.compile(ur'^[⺀-⺙⺛-⻳⼀-⿕々〇〡-〩〸-〺〻㐀-䶵一-鿃豈-鶴侮-頻並-龎]+$', re.UNICODE)
+    r = 'undefined'
     if HANUNI.match(txt):
         get = requests.get('https://www.moedict.tw/a/%s.json' % txt)
         if get.status_code == 200:
@@ -243,22 +257,24 @@ def lineMoeDict(uid, txt):
                         for ex in d['e']:
                             r = r + u'　%s\n' % stripHTML(ex)
                     i = i + 1
+            return r
         elif get.status_code == 404:
-            r = u'查無此字。'
+            return u'查無此字。'
         else:
             pprint.pprint(txt)
             app.logger.warn(str(get.status_code))
             app.logger.warn(str(get.text))
-            r = u'系統錯誤，請稍候再試。'
+            return u'系統錯誤，請稍候再試。'
     else:
-        r = u'查詢字串內含非漢字的字元，請重新輸入。'
-    sendLineText(uid, r)
+        return u'查詢字串內含非漢字的字元，請重新輸入。'
+    return r
 
 
 def lineTaiDict(uid, txt):
     print u'UID %s 查台語萌典: %s' % (uid, txt)
     # copied from stackoverflow
     HANUNI = re.compile(ur'^[⺀-⺙⺛-⻳⼀-⿕々〇〡-〩〸-〺〻㐀-䶵一-鿃豈-鶴侮-頻並-龎]+$', re.UNICODE)
+    r = 'undefined'
     if HANUNI.match(txt):
         get = requests.get('https://www.moedict.tw/t/%s.json' % txt)
         if get.status_code == 200:
@@ -282,18 +298,19 @@ def lineTaiDict(uid, txt):
                         for ex in d['e']:
                             r = r + u'　%s\n' % renderMoeExample(stripHTML(ex))
                     i = i + 1
+            return r
             # MP3 in https://1763c5ee9859e0316ed6-db85b55a6a3fbe33f09b9245992383bd.ssl.cf1.rackcdn.com/04208.mp3
             # j['h'][0]['_'] left pad 0 to 5 digits
         elif get.status_code == 404:
-            r = u'查無此字。'
+            return u'查無此字。'
         else:
             pprint.pprint(txt)
             app.logger.warn(str(get.status_code))
             app.logger.warn(str(get.text))
-            r = u'系統錯誤，請稍候再試。'
+            return u'系統錯誤，請稍候再試。'
     else:
-        r = u'查詢字串內含非漢字的字元，請重新輸入。'
-    sendLineText(uid, r)
+        return u'查詢字串內含非漢字的字元，請重新輸入。'
+    return 
 
 
 def renderMoeExample(s):

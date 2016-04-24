@@ -64,3 +64,4 @@ target/
 # cfg
 linebot.cfg
 fbtoken.cfg
+*.pem
