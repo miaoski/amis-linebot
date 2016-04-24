@@ -2,14 +2,14 @@
 ==============
 隨手紀錄一下在新的 DigtalOcean Droplet 上安裝阿美語萌典 line bot 。
 
-Line Bot 的 callback URL 需要 https ，會驗證簽章，有幾種方法。感謝 Ronny Wang 提供方法和幫忙測試 ^^;
+Line Bot 的 callback URL 需要 https ，會驗證簽章，有幾種方法。感謝 Ronny Wang 提供方法和幫忙測試。
 
 
 關於SSL
 -------
 1. 用 Heroku 做一個小的 reverse proxy。請參考 Ronny Wang 寫的 `amis-proxy.php`。如果每天用量在 18 小時以內免費，超過的話每月 US$7
 2. 用 AWS CloudFront，收費是 US$0.14/GB
-3. LINE 目前支援 Let's Encrypt X1，並即將支援 Let's Encrypt X3 。
+3. LINE 目前支援 Let's Encrypt X1 及 Let's Encrypt X3 。
 
 
 FB Messenger Bot
@@ -54,6 +54,12 @@ COMMIT
 ```
 
 預設的 callback URL 是 https://amis.miaoski.idv.tw:443/callback ，要修改的話請記得改一下 `linebot.py` 裡的路徑。當然目前因為 Line 不支援 Let's Encrypt 的關係，我們用的是 Heroku 上的代理 callback。
+
+
+
+蔡中涵委員阿美語詞典
+--------------------
+請從 [amis-safolu](https://github.com/miaoski/amis-safolu/) 下載字典檔，並 `ln -s ../amis-safolu/txt/dict-amis.json dict-safolu.json` 。
 
 
 
