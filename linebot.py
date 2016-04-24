@@ -332,9 +332,10 @@ def lineTaiDict(uid, txt):
 
 
 def renderMoeExample(s):
-    return s.replace(u'\ufff9', '') \
-            .replace(u'\ufffa', '(') \
-            .replace(u'\ufffb', ')')
+    r = s.replace(u'\ufff9', '') \
+         .replace(u'\ufffa', ' ') \
+         .replace(u'\ufffb', ' (') + ')'
+    return r.replace('()', '')              # XXX: Dirty Hack
 
 
 def stripHTML(s):
