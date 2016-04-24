@@ -10,8 +10,8 @@ SUPPORTED_DICT = {
         'fey': 'dict-fey.sq3',
         'safolu': 'dict-safolu.sq3',
         }
-SQLDB_NAME = 'dict-fey.sq3'
 USER_LASTWORD = {}
+RE_NUM = re.compile(r'^[0-9]+$')
 
 def loaddb(dic):
     if dic in SUPPORTED_DICT:
@@ -36,6 +36,25 @@ def isCJK(s):
     except:
         pass
     return re.match(r'^[a-zA-Z\'"^:]+$', s) is None
+
+
+def fey(uid, txt):
+    return lookupAmisDict('fey', uid, txt)
+
+def safolu(uid, txt):
+    return lookupAmisDict('safolu', uid, txt)
+
+
+def lookupAmisDict(dbname, uid, txt):
+    db = fey.loaddb(dbname)
+    if db is None:
+        return u'系統錯誤，找不到資料庫'
+    if RE_NUM.match(txt):               # 輸入數字鍵查詢候選詞
+        choice = int(txt)
+        r = numpadInput(db, choice, uid)
+    else:
+        r = lookup(db, txt, uid)
+    return r
 
 
 def iterrows(cur, uid = None):
@@ -132,9 +151,9 @@ def testme():
     sys.exit(10)
 
 
-if __name__ == '__main__':
+def fuzzy_fey():
     print 'Generating fuzzy table.'
-    conn = sqlite3.connect(SQLDB_NAME)
+    conn = sqlite3.connect(SUPPORTED_DICT['fey'])
     cur = conn.cursor()
     cur.execute('DELETE FROM fuzzy')
     conn.commit()
@@ -146,3 +165,7 @@ if __name__ == '__main__':
     conn.commit()
     conn.close()
     print 'Done.'
+
+
+if __name__ == '__main__':
+    pass

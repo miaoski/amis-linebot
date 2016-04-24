@@ -8,7 +8,8 @@ import logging
 import ConfigParser
 import requests
 import json
-import fey
+import amis
+import moe
 import pprint
 import types
 
@@ -16,7 +17,6 @@ app = flask.Flask(__name__)
 app.logger.setLevel(logging.DEBUG)
 
 LINE_ENDPOINT = "https://trialbot-api.line.me"
-USER_LASTWORD = {}
 USER_DICT = {}
 USER_DICT_DEFAULT = 'fey'
 USER_DICT_CODE = ['fey', 'safolu', 'moe', 'tai', 'hak']
@@ -59,46 +59,16 @@ def fbbot():
                     txt = txt.strip()
                 except:
                     pass
-                app.logger.info(u'UID %d 查詢 %s' % (uid, txt))
-                if not hasValidDict(uid):
-                    sendLineText(uid, u'系統錯誤，已切回阿美語(方敏英)字典。')
-                if txt[0] in ('/', '?'):            # 功能鍵
-                    r = command(uid, txt)
-                    sendFBMsg(uid, r)
-                elif USER_DICT[uid] == 'fey':
-                    r = lineAmisDict(uid, txt)
-                    sendFBMsg(uid, r)
-                elif USER_DICT[uid] == 'safolu':
-                    r = lineAmisDict(uid, txt)
-                    sendFBMsg(uid, r)
-                elif USER_DICT[uid] == 'moe':
-                    r = lineMoeDict(uid, txt)
-                    sendFBMsg(uid, r)
-                elif USER_DICT[uid] == 'tai':
-                    r = lineTaiDict(uid, txt)
-                    sendFBMsg(uid, r)
-                elif USER_DICT[uid] == 'hak':
-                    r = lineHakDict(uid, txt)
-                    sendFBMsg(uid, r)
-                else:
-                    app.logger.error('Should not be here.  Fatal 1.')
+                r = textSearch(uid, txt)
+                sendFBMsg(uid, r)
             if 'postback' in messaging:
                 if 'payload' not in messaging['postback']:
                     app.logger.warn('How can I know a postback without payload?')
                     pprint.pprint(messaging)
                     continue
                 pb = messaging['postback']['payload']
-                hasValidDict(uid)
-                db = fey.loaddb(USER_DICT[uid])
-                if pb == '**SkipExample':       # 不看例句
-                    app.logger.info(u'UID %d 不看例句' % uid)
-                    r = u'請輸入您要查詢的單字。'
-                elif pb.startswith('**-'):
-                    app.logger.info(u'UID %d 看例句 %s' % (uid, pb))
-                    r = fey.getExample(db, pb[3:])
-                else:
-                    app.logger.info(u'UID %d 選取 %s' % (uid, pb))
-                    r = fey.lookup(db, pb, uid)
+                app.logger.info(u'UID %d 選取 %s' % (uid, pb))
+                r = textSearch(uid, pb)
                 sendFBMsg(uid, r)
         return flask.Response(status=200)
 
@@ -204,28 +174,8 @@ def linebot():
                 pprint.pprint(req)
                 return flask.Response(status=470)
             txt = txt.strip()
-            if not hasValidDict(uid):
-                sendLineText(uid, u'系統錯誤，已切回阿美語(方敏英)字典。')
-            if txt[0] in ('/', '?'):                # 功能鍵
-                r = command(uid, txt)
-                sendLineText(uid, r)
-            elif USER_DICT[uid] == 'fey':
-                r = lineAmisDict(uid, txt)
-                sendLineText(uid, r)
-            elif USER_DICT[uid] == 'safolu':
-                r = lineAmisDict(uid, txt)
-                sendLineText(uid, r)
-            elif USER_DICT[uid] == 'moe':
-                r = lineMoeDict(uid, txt)
-                sendLineText(uid, r)
-            elif USER_DICT[uid] == 'tai':
-                r = lineTaiDict(uid, txt)
-                sendLineText(uid, r)
-            elif USER_DICT[uid] == 'hak':
-                r = lineHakDict(uid, txt)
-                sendLineText(uid, r)
-            else:
-                app.logger.error('Should not be here.  Fatal 1.')
+            r = textSearch(uid, txt)
+            sendLineText(uid, r)
     return flask.Response(status=200)
 
 
@@ -242,159 +192,6 @@ def hasValidDict(uid):
         return False
 
 
-def lineAmisDict(uid, txt):
-    hasValidDict(uid)
-    db = fey.loaddb(USER_DICT[uid])
-    if RE_NUM.match(txt):             # Line 輸入數字鍵查詢候選詞
-        choice = int(txt)
-        r = fey.numpadInput(db, choice, uid)
-    else:
-        r = fey.lookup(db, txt, uid)
-    return r
-
-
-def lineMoeDict(uid, txt):
-    print u'UID %s 查國語萌典: %s' % (uid, txt)
-    # copied from stackoverflow
-    HANUNI = re.compile(ur'^[⺀-⺙⺛-⻳⼀-⿕々〇〡-〩〸-〺〻㐀-䶵一-鿃豈-鶴侮-頻並-龎]+$', re.UNICODE)
-    r = 'undefined'
-    if HANUNI.match(txt):
-        get = requests.get('https://www.moedict.tw/a/%s.json' % txt)
-        if get.status_code == 200:
-            j = get.json()
-            if 'r' in j and 'n' in j:
-                r = u'%s (%s部%d劃)\n' % (stripHTML(j['t']), stripHTML(j['r']), j['n'])
-            else:
-                r = stripHTML(j['t']) + '\n'
-            for h in j['h']:
-                i = 1
-                if 'b' in h and 'p' in h:
-                    r = r + u'%s %s\n' % (h['b'], h['p'])
-                for d in h['d']:
-                    if 'type' in d:
-                        word_class = u'[%s詞]' % stripHTML(d['type'])
-                    else:
-                        word_class = ''
-                    r = r + '%d. %s %s\n' % (i, word_class, stripHTML(d['f']))
-                    if 'e' in d:
-                        for ex in d['e']:
-                            r = r + u'　%s\n' % stripHTML(ex)
-                    i = i + 1
-                if 's' in h:
-                    r = r + u'相似詞: %s' % stripHTML(h['s'])
-            return r
-        elif get.status_code == 404:
-            return u'查無此字。'
-        else:
-            pprint.pprint(txt)
-            app.logger.warn(str(get.status_code))
-            app.logger.warn(str(get.text))
-            return u'系統錯誤，請稍候再試。'
-    else:
-        return u'查詢字串內含非漢字的字元，請重新輸入。'
-    return r
-
-
-def lineTaiDict(uid, txt):
-    print u'UID %s 查台語萌典: %s' % (uid, txt)
-    # copied from stackoverflow
-    HANUNI = re.compile(ur'^[⺀-⺙⺛-⻳⼀-⿕々〇〡-〩〸-〺〻㐀-䶵一-鿃豈-鶴侮-頻並-龎]+$', re.UNICODE)
-    r = 'undefined'
-    if HANUNI.match(txt):
-        get = requests.get('https://www.moedict.tw/t/%s.json' % txt)
-        if get.status_code == 200:
-            j = get.json()
-            if 'r' in j and 'n' in j:
-                r = u'%s (%s部%d劃)\n' % (stripHTML(j['t']), stripHTML(j['r']), j['n'])
-            else:
-                r = stripHTML(j['t']) + '\n'
-            for h in j['h']:
-                i = 1
-                reading = stripHTML(h.get('reading', u'發'))
-                if 'T' in h:
-                    r = r + u'%s音: %s\n' % (reading, h['T'])
-                for d in h['d']:
-                    if 'type' in d:
-                        word_class = u'[%s詞] ' % stripHTML(d['type'])
-                    else:
-                        word_class = ''
-                    r = r + '%d. %s%s\n' % (i, word_class, stripHTML(d['f']))
-                    if 'e' in d:
-                        for ex in d['e']:
-                            r = r + u'%s\n' % renderMoeExample(stripHTML(ex))
-                    i = i + 1
-                if 's' in h:
-                    r = r + u'相似詞: %s' % stripHTML(h['s'])
-            return r
-            # MP3 in https://1763c5ee9859e0316ed6-db85b55a6a3fbe33f09b9245992383bd.ssl.cf1.rackcdn.com/04208.mp3
-            # j['h'][0]['_'] left pad 0 to 5 digits
-        elif get.status_code == 404:
-            return u'查無此字。'
-        else:
-            pprint.pprint(txt)
-            app.logger.warn(str(get.status_code))
-            app.logger.warn(str(get.text))
-            return u'系統錯誤，請稍候再試。'
-    else:
-        return u'查詢字串內含非漢字的字元，請重新輸入。'
-    return 
-
-
-def lineHakDict(uid, txt):
-    print u'UID %s 查客語萌典: %s' % (uid, txt)
-    # copied from stackoverflow
-    HANUNI = re.compile(ur'^[⺀-⺙⺛-⻳⼀-⿕々〇〡-〩〸-〺〻㐀-䶵一-鿃豈-鶴侮-頻並-龎]+$', re.UNICODE)
-    r = 'undefined'
-    if HANUNI.match(txt):
-        get = requests.get('https://www.moedict.tw/h/%s.json' % txt)
-        if get.status_code == 200:
-            j = get.json()
-            r = stripHTML(j['t']) + '\n'
-            for h in j['h']:
-                i = 1
-                reading = stripHTML(h.get('reading', u'發'))
-                if 'p' in h:
-                    r = r + h['p'].replace(u'\u20de', '') + '\n'    # 不要四方框
-                for d in h['d']:
-                    if 'type' in d and d['type'] != '':
-                        word_class = u'[%s詞] ' % stripHTML(d['type'])
-                    else:
-                        word_class = ''
-                    r = r + '%d. %s%s\n' % (i, word_class, stripHTML(d['f']))
-                    if 'e' in d:
-                        for ex in d['e']:
-                            r = r + u'%s\n' % renderMoeExample(stripHTML(ex))
-                    i = i + 1
-                if 's' in h:
-                    r = r + u'相似詞: %s' % stripHTML(h['s'])
-            return r
-            # MP3 in https://1763c5ee9859e0316ed6-db85b55a6a3fbe33f09b9245992383bd.ssl.cf1.rackcdn.com/04208.mp3
-            # j['h'][0]['='] left pad 0 to 5 digits
-        elif get.status_code == 404:
-            return u'查無此字。'
-        else:
-            pprint.pprint(txt)
-            app.logger.warn(str(get.status_code))
-            app.logger.warn(str(get.text))
-            return u'系統錯誤，請稍候再試。'
-    else:
-        return u'查詢字串內含非漢字的字元，請重新輸入。'
-    return 
-
-
-def renderMoeExample(s):
-    r = s.replace(u'\ufff9', u'　') \
-         .replace(u'\ufffa', u'\n　') \
-         .replace(u'\ufffb', u'\n　(') + ')'
-    return r.replace(u'\n　()', '')           # XXX: Dirty Hack
-
-
-def stripHTML(s):
-    #TAG_RE = re.compile(r'<[^>]+>')
-    #return TAG_RE.sub('', s)
-    return s.replace('`', '').replace('~', '')
-
-
 def sendLineText(to, msg):
     data = { "contentType": 1, "toType": 1 }
     if isinstance(msg, types.StringTypes):
@@ -407,6 +204,7 @@ def sendLineText(to, msg):
     else:
         app.logger.error('Unknown msg %s', msg)
     lineEvents(to, data)
+
 
 def lineEvents(to, content):
     data = {
@@ -441,6 +239,24 @@ def command(uid, cmd):
         except:
             return u'沒有這個指令。'
     return general_help_msg
+
+
+def textSearch(uid, txt):
+    app.logger.info(u'UID %d 查詢 %s' % (uid, txt))
+    hasValidDict(uid)
+    if txt[0] in ('/', '?'):            # 功能鍵
+        return command(uid, txt)
+    if USER_DICT[uid] == 'fey':
+        return amis.fey(uid, txt)
+    if USER_DICT[uid] == 'safolu':
+        return amis.safolu(uid, txt)
+    if USER_DICT[uid] == 'moe':
+        return moe.guoyu(uid, txt)
+    if USER_DICT[uid] == 'tai':
+        return moe.taigi(uid, txt)
+    if USER_DICT[uid] == 'hak':
+        return moe.hakkafa(uid, txt)
+    app.logger.error('Should not be here.  Fatal 1.')
 
 
 if __name__ == "__main__":
