@@ -198,7 +198,7 @@ def sendLineText(to, msg):
         data['text'] = msg
     elif isinstance(msg, types.DictType):
         if msg['type'] == 'options':        # 選擇單字
-            data['text'] = msg['text'] +'\n'+ fey.iterrows([[x,] for x in msg['words']], to)
+            data['text'] = msg['text'] +'\n'+ amis.iterrows([[x,] for x in msg['words']], to)
         elif msg['type'] == 'stropt':       # 要看例句嗎
             data['text'] = u'%s\n請輸入 0 查看例句' % msg['text']
     else:
@@ -242,7 +242,7 @@ def command(uid, cmd):
 
 
 def textSearch(uid, txt):
-    app.logger.info(u'UID %d 查詢 %s' % (uid, txt))
+    app.logger.info(u'UID %s 查詢 %s' % (str(uid), txt))
     hasValidDict(uid)
     if txt[0] in ('/', '?'):            # 功能鍵
         return command(uid, txt)

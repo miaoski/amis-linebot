@@ -46,7 +46,7 @@ def safolu(uid, txt):
 
 
 def lookupAmisDict(dbname, uid, txt):
-    db = fey.loaddb(dbname)
+    db = loaddb(dbname)
     if db is None:
         return u'系統錯誤，找不到資料庫'
     if RE_NUM.match(txt):               # 輸入數字鍵查詢候選詞
@@ -96,7 +96,7 @@ def lookup(db, s, uid):
             e = getExample(db, s)
             if len(e) > 0: r = r + '\n' + e
             return r
-        cur.execute('SELECT amis FROM fuzzy WHERE fuzz LIKE ? LIMIT 10', ('%%' + fuzzme(s) + '%%', ))
+        cur.execute('SELECT amis FROM fuzzy WHERE fuzz LIKE ? ORDER BY LENGTH(amis) LIMIT 10', ('%%' + fuzzme(s) + '%%', ))
         rows = cur.fetchall()
         if len(rows) == 0:
             return u'找不到這個詞。'
