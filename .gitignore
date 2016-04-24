@@ -65,3 +65,4 @@ target/
 linebot.cfg
 fbtoken.cfg
 *.pem
+dict-safolu.sq3

@@ -6,11 +6,18 @@ import sqlite3
 import re
 import logging
 
+SUPPORTED_DICT = {
+        'fey': 'dict-fey.sq3',
+        'safolu': 'dict-safolu.sq3',
+        }
 SQLDB_NAME = 'dict-fey.sq3'
 USER_LASTWORD = {}
 
-def loaddb():
-    return sqlite3.connect(SQLDB_NAME)
+def loaddb(dic):
+    if dic in SUPPORTED_DICT:
+        return sqlite3.connect(SUPPORTED_DICT[dic])
+    else:
+        return None
 
 
 def fuzzme(v):
@@ -107,7 +114,7 @@ def numpadInput(db, num, uid):
 
 
 def testme():
-    db = loaddb()
+    db = loaddb('fey')
     cur = db.cursor()
     print 'False ==', isCJK("nga'aiho")
     print 'True ==', isCJK(u'貓')

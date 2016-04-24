@@ -15,30 +15,19 @@ import types
 app = flask.Flask(__name__)
 app.logger.setLevel(logging.DEBUG)
 
-DATABASE = 'dict-fey.sq3'
 LINE_ENDPOINT = "https://trialbot-api.line.me"
 USER_LASTWORD = {}
 USER_DICT = {}
 USER_DICT_DEFAULT = 'fey'
+USER_DICT_CODE = ['fey', 'safolu', 'moe', 'tai', 'hak']
 SUPPORTED_DICT = {
         'fey': u'阿美語(方敏英)字典', 
+        'safolu': u'阿美語(蔡中涵)字典', 
         'moe': u'國語萌典',
         'tai': u'臺灣閩南語',
         'hak': u'客語萌典'}
 RE_NUM = re.compile(r'^[0-9]+$')
 FB_MSG_MAXLEN = 300                 # 官方限 320 自我審查一下
-
-def connect_db():
-    return sqlite3.connect(DATABASE)
-
-@app.before_request
-def before_request():
-    flask.g.db = connect_db()
-
-@app.teardown_request
-def teardown_request(exception):
-    if hasattr(flask.g, 'db'):
-        flask.g.db.close()
 
 @app.route('/')
 def homepage():
@@ -50,7 +39,6 @@ def fbbot():
         if flask.request.args.get('hub.verify_token') == FB_TOKEN:
             return flask.request.args.get('hub.challenge'), 200
     if flask.request.method == 'POST':
-        db = fey.loaddb()
         # app.logger.info(flask.request.json)
         for messaging in flask.request.json['entry'][0]['messaging']:
             if 'sender' not in messaging:
@@ -74,10 +62,13 @@ def fbbot():
                 app.logger.info(u'UID %d 查詢 %s' % (uid, txt))
                 if not hasValidDict(uid):
                     sendLineText(uid, u'系統錯誤，已切回阿美語(方敏英)字典。')
-                elif txt[0] in ('/', '?'):            # 功能鍵
+                if txt[0] in ('/', '?'):            # 功能鍵
                     r = command(uid, txt)
                     sendFBMsg(uid, r)
                 elif USER_DICT[uid] == 'fey':
+                    r = lineAmisDict(uid, txt)
+                    sendFBMsg(uid, r)
+                elif USER_DICT[uid] == 'safolu':
                     r = lineAmisDict(uid, txt)
                     sendFBMsg(uid, r)
                 elif USER_DICT[uid] == 'moe':
@@ -97,6 +88,8 @@ def fbbot():
                     pprint.pprint(messaging)
                     continue
                 pb = messaging['postback']['payload']
+                hasValidDict(uid)
+                db = fey.loaddb(USER_DICT[uid])
                 if pb == '**SkipExample':       # 不看例句
                     app.logger.info(u'UID %d 不看例句' % uid)
                     r = u'請輸入您要查詢的單字。'
@@ -175,8 +168,8 @@ def isValidChannelSignature(exp, raw):
     secret = LINE_HEADERS['X-Line-ChannelSecret']
     calc = base64.b64encode(hmac.new(secret, raw, digestmod=hashlib.sha256).digest())
     if exp != calc:
-        print 'X-Line-Channelsignature: ' + exp
-        print 'Calculated             : ' + calc
+        app.logger.warn('X-Line-Channelsignature: ' + exp)
+        app.logger.warn('Calculated             : ' + calc)
         return False
     else:
         return True
@@ -213,10 +206,13 @@ def linebot():
             txt = txt.strip()
             if not hasValidDict(uid):
                 sendLineText(uid, u'系統錯誤，已切回阿美語(方敏英)字典。')
-            elif txt[0] in ('/', '?'):            # 功能鍵
+            if txt[0] in ('/', '?'):                # 功能鍵
                 r = command(uid, txt)
                 sendLineText(uid, r)
             elif USER_DICT[uid] == 'fey':
+                r = lineAmisDict(uid, txt)
+                sendLineText(uid, r)
+            elif USER_DICT[uid] == 'safolu':
                 r = lineAmisDict(uid, txt)
                 sendLineText(uid, r)
             elif USER_DICT[uid] == 'moe':
@@ -247,7 +243,8 @@ def hasValidDict(uid):
 
 
 def lineAmisDict(uid, txt):
-    db = fey.loaddb()
+    hasValidDict(uid)
+    db = fey.loaddb(USER_DICT[uid])
     if RE_NUM.match(txt):             # Line 輸入數字鍵查詢候選詞
         choice = int(txt)
         r = fey.numpadInput(db, choice, uid)
@@ -428,18 +425,21 @@ def lineEvents(to, content):
 
 
 def command(uid, cmd):
-    cmd = cmd.lower()
+    cmd = cmd.lower().strip()
     general_help_msg = u'/ 或 ?: 本使用說明\n'
-    for k,v in SUPPORTED_DICT.iteritems():
-        general_help_msg += u'/%s : 切換至%s\n' % (k, v)
+    for i in range(len(USER_DICT_CODE)):
+        general_help_msg += u'/%d : 切換至%s\n' % (i+1, SUPPORTED_DICT[USER_DICT_CODE[i]])
     hasValidDict(uid)
     if len(cmd) < 2 or cmd == '/?' or cmd == '/h':
         curdict = u'您目前使用的是: %s' % SUPPORTED_DICT.get(USER_DICT[uid], u'不明的外星字典')
         return curdict + '\n' + general_help_msg
-    for k,v in SUPPORTED_DICT.iteritems():
-        if cmd[1:] == k:
-            USER_DICT[uid] = cmd[1:]
-            return u'已切換至%s' % v
+    if RE_NUM.match(cmd[1:]):
+        try:
+            dic = int(cmd[1:]) - 1
+            USER_DICT[uid] = USER_DICT_CODE[dic]
+            return u'已切換至%s' % SUPPORTED_DICT[USER_DICT_CODE[dic]]
+        except:
+            return u'沒有這個指令。'
     return general_help_msg
 
 
