@@ -26,6 +26,7 @@ SUPPORTED_DICT = {
         'tai': u'臺灣閩南語',
         'hak': u'客語萌典'}
 RE_NUM = re.compile(r'^[0-9]+$')
+FB_MSG_MAXLEN = 300                 # 官方限 320 自我審查一下
 
 def connect_db():
     return sqlite3.connect(DATABASE)
@@ -75,24 +76,19 @@ def fbbot():
                     sendLineText(uid, u'系統錯誤，已切回阿美語(方敏英)字典。')
                 elif txt[0] in ('/', '?'):            # 功能鍵
                     r = command(uid, txt)
-                    for xs in fbSplitMsg(r):
-                        sendFBMsg(uid, xs)
+                    sendFBMsg(uid, r)
                 elif USER_DICT[uid] == 'fey':
                     r = lineAmisDict(uid, txt)
-                    for xs in fbSplitMsg(r):
-                        sendFBMsg(uid, xs)
+                    sendFBMsg(uid, r)
                 elif USER_DICT[uid] == 'moe':
                     r = lineMoeDict(uid, txt)
-                    for xs in fbSplitMsg(r):
-                        sendFBMsg(uid, xs)
+                    sendFBMsg(uid, r)
                 elif USER_DICT[uid] == 'tai':
                     r = lineTaiDict(uid, txt)
-                    for xs in fbSplitMsg(r):
-                        sendFBMsg(uid, xs)
+                    sendFBMsg(uid, r)
                 elif USER_DICT[uid] == 'hak':
                     r = lineHakDict(uid, txt)
-                    for xs in fbSplitMsg(r):
-                        sendFBMsg(uid, xs)
+                    sendFBMsg(uid, r)
                 else:
                     app.logger.error('Should not be here.  Fatal 1.')
             if 'postback' in messaging:
@@ -115,20 +111,17 @@ def fbbot():
 
 
 def fbSplitMsg(s):
-    if not isinstance(s, types.StringTypes):
-        yield s
-    else:
-        r = ''
-        for x in s.split('\n'):
-            if len(x) >= 300:       # 超過 300 個字元的我們就算了
-                print u'丟掉超過300字的字串:', x
-                continue
-            if len(r) + len(x) < 300:
-                r = r + x + '\n'
-            else:
-                yield r
-                r = x + '\n'
-        yield r
+    r = ''
+    for x in s.split('\n'):
+        if len(x) >= 300:       # 超過 300 個字元的我們就算了
+            print u'丟掉超過300字的字串:', x
+            continue
+        if len(r) + len(x) < 300:
+            r = r + x + '\n'
+        else:
+            yield r
+            r = x + '\n'
+    yield r
 
 
 # http://stackoverflow.com/questions/312443/how-do-you-split-a-list-into-evenly-sized-chunks-in-python
@@ -140,7 +133,11 @@ def sendFBMsg(uid, txt):
     url = 'https://graph.facebook.com/v2.6/me/messages?access_token=%s' % FB_APP_TOKEN
     data = {'recipient': {'id': uid}}
     if isinstance(txt, types.StringTypes):
-        data['message'] = {'text': txt.strip()}
+        if len(txt) > FB_MSG_MAXLEN:
+            for xs in fbSplitMsg(txt):
+                sendFBMsg(uid, xs)                  # 在噁心的地方 recursive
+        else:
+            data['message'] = {'text': txt.strip()}
     elif isinstance(txt, types.DictType):
         if txt['type'] == 'options':                # 選擇單字
             elements = []
