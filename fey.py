@@ -6,7 +6,7 @@ import sqlite3
 import re
 import logging
 
-SQLDB_NAME = 'dict-amis.sq3'
+SQLDB_NAME = 'dict-fey.sq3'
 USER_LASTWORD = {}
 
 def loaddb():
@@ -127,7 +127,7 @@ def testme():
 
 if __name__ == '__main__':
     print 'Generating fuzzy table.'
-    conn = sqlite3.connect('dict-amis.sq3')
+    conn = sqlite3.connect(SQLDB_NAME)
     cur = conn.cursor()
     cur.execute('DELETE FROM fuzzy')
     conn.commit()

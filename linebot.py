@@ -8,14 +8,14 @@ import logging
 import ConfigParser
 import requests
 import json
-import amis
+import fey
 import pprint
 import types
 
 app = flask.Flask(__name__)
 app.logger.setLevel(logging.DEBUG)
 
-DATABASE = 'dict-amis.sq3'
+DATABASE = 'dict-fey.sq3'
 LINE_ENDPOINT = "https://trialbot-api.line.me"
 USER_LASTWORD = {}
 USER_DICT = {}
@@ -50,7 +50,7 @@ def fbbot():
         if flask.request.args.get('hub.verify_token') == FB_TOKEN:
             return flask.request.args.get('hub.challenge'), 200
     if flask.request.method == 'POST':
-        db = amis.loaddb()
+        db = fey.loaddb()
         # app.logger.info(flask.request.json)
         for messaging in flask.request.json['entry'][0]['messaging']:
             if 'sender' not in messaging:
@@ -102,10 +102,10 @@ def fbbot():
                     r = u'請輸入您要查詢的單字。'
                 elif pb.startswith('**-'):
                     app.logger.info(u'UID %d 看例句 %s' % (uid, pb))
-                    r = amis.getExample(db, pb[3:])
+                    r = fey.getExample(db, pb[3:])
                 else:
                     app.logger.info(u'UID %d 選取 %s' % (uid, pb))
-                    r = amis.lookup(db, pb, uid)
+                    r = fey.lookup(db, pb, uid)
                 sendFBMsg(uid, r)
         return flask.Response(status=200)
 
@@ -247,12 +247,12 @@ def hasValidDict(uid):
 
 
 def lineAmisDict(uid, txt):
-    db = amis.loaddb()
+    db = fey.loaddb()
     if RE_NUM.match(txt):             # Line 輸入數字鍵查詢候選詞
         choice = int(txt)
-        r = amis.numpadInput(db, choice, uid)
+        r = fey.numpadInput(db, choice, uid)
     else:
-        r = amis.lookup(db, txt, uid)
+        r = fey.lookup(db, txt, uid)
     return r
 
 
@@ -404,7 +404,7 @@ def sendLineText(to, msg):
         data['text'] = msg
     elif isinstance(msg, types.DictType):
         if msg['type'] == 'options':        # 選擇單字
-            data['text'] = msg['text'] +'\n'+ amis.iterrows([[x,] for x in msg['words']], to)
+            data['text'] = msg['text'] +'\n'+ fey.iterrows([[x,] for x in msg['words']], to)
         elif msg['type'] == 'stropt':       # 要看例句嗎
             data['text'] = u'%s\n請輸入 0 查看例句' % msg['text']
     else:
