@@ -3,7 +3,7 @@
 import sys
 import json
 import sqlite3
-from fey import fuzzme
+from amis import fuzzme
 
 conn = sqlite3.connect('dict-safolu.sq3')
 
