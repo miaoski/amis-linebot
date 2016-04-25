@@ -36,7 +36,8 @@ def isCJK(s):
         s = s.strip()
     except:
         pass
-    return re.match(r'^[a-zA-Z\'"^:]+$', s) is None
+    # return re.match(r'^[a-zA-Z\'"^:]+$', s) is None
+    return re.match(ur'^[\u0000-\u00ff]+$', s) is None
 
 
 def fey(uid, txt):
@@ -62,9 +63,17 @@ def safolu(uid, txt):
         word = choices[num]
         return safolu(uid, word)
     db = loaddb('safolu')
-    r = 'undefined'
-    print u'UID %s 查蔡中涵辭典: %s' % (uid, txt)
     cur = db.cursor()
+    print u'UID %s 查蔡中涵辭典: %s' % (uid, txt)
+    if isCJK(txt):    # 漢語查阿美語
+        cur.execute('SELECT title FROM amis WHERE json LIKE ? LIMIT 10', ('%%' +txt+ '%%', ))
+        rows = cur.fetchall()
+        if len(rows) == 0:
+            return u'找不到這個詞。'
+        else:
+            return {'type': 'options',
+                    'text': u'有「%s」的阿美語詞' % txt, 
+                    'words': [r[0] for r in rows]}
     cur.execute('SELECT json FROM amis WHERE title=?', (txt,))
     row = cur.fetchone()
     if row:
