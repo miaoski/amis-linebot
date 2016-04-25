@@ -5,6 +5,7 @@ import sys
 import sqlite3
 import re
 import logging
+import json
 
 SUPPORTED_DICT = {
         'fey': 'dict-fey.sq3',
@@ -39,14 +40,7 @@ def isCJK(s):
 
 
 def fey(uid, txt):
-    return lookupAmisDict('fey', uid, txt)
-
-def safolu(uid, txt):
-    return lookupAmisDict('safolu', uid, txt)
-
-
-def lookupAmisDict(dbname, uid, txt):
-    db = loaddb(dbname)
+    db = loaddb('fey')
     if db is None:
         return u'系統錯誤，找不到資料庫'
     if RE_NUM.match(txt):               # 輸入數字鍵查詢候選詞
@@ -54,6 +48,54 @@ def lookupAmisDict(dbname, uid, txt):
         r = numpadInput(db, choice, uid)
     else:
         r = lookup(db, txt, uid)
+    return r
+
+def safolu(uid, txt):
+    if RE_NUM.match(txt):               # 輸入數字鍵查詢候選詞
+        num = int(txt)
+        print u'>>> 使用者 [%s] 輸入了 %d' % (uid, num)
+        if uid not in USER_LASTWORD:
+            return u'請重新查詢單字。'
+        choices = USER_LASTWORD[uid]
+        if num + 1 > len(choices):
+            return u'請重新選擇。'
+        word = choices[num]
+        return safolu(uid, word)
+    db = loaddb('safolu')
+    r = 'undefined'
+    print u'UID %s 查蔡中涵辭典: %s' % (uid, txt)
+    cur = db.cursor()
+    cur.execute('SELECT json FROM amis WHERE title=?', (txt,))
+    row = cur.fetchone()
+    if row:
+        j = json.loads(row[0])
+        r = ''
+        for h in j['h']:
+            i = 1
+            r = r + j['t'] + ':\n'
+            for d in h['d']:
+                r = r + '%d. %s\n' % (i, d['f'])
+                if 'e' in d:
+                    for ex in d['e']:
+                        r = r + u'%s\n' % renderSafoluExample(ex)
+                i = i + 1
+            if 's' in h:
+                r = r + u'相似詞: %s' % (h['s'],)
+        return r
+    else:
+        cur.execute('SELECT amis FROM fuzzy WHERE fuzz LIKE ? ORDER BY LENGTH(amis) LIMIT 10', ('%%' + fuzzme(txt) + '%%', ))
+        rows = cur.fetchall()
+        if len(rows) == 0:
+            return u'找不到這個詞。'
+        else:
+            return {'type': 'options', 
+                    'text': u'請問你要查哪個詞?',
+                    'words': [r[0] for r in rows]}
+
+def renderSafoluExample(s):
+    r = s.replace(u'\ufff9', u'　') \
+         .replace(u'\ufffa', u'') \
+         .replace(u'\ufffb', u'\n　')
     return r
 
 
