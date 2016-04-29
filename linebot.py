@@ -131,11 +131,11 @@ def sendFBMsg(uid, txt):
         app.logger.warn(str(r.headers))
 
 
-def isValidChannelSignature(exp, raw):
+def isValidChannelSignature(headers, exp, raw):
     import hashlib
     import hmac
     import base64
-    secret = LINE_HEADERS['X-Line-ChannelSecret']
+    secret = headers['X-Line-ChannelSecret']
     calc = base64.b64encode(hmac.new(secret, raw, digestmod=hashlib.sha256).digest())
     if exp != calc:
         app.logger.warn('X-Line-Channelsignature: ' + exp)
@@ -145,12 +145,26 @@ def isValidChannelSignature(exp, raw):
         return True
 
 @app.route('/callback', methods=['POST',])
-def linebot():
+def linebot_1():
+    return linebot(LINE_HEADERS)
+
+@app.route('/moedict', methods=['POST',])
+def linebot_2():
+    LINE_HEADERS_2 = {
+        "X-Line-ChannelID": '1465475272',
+        "X-Line-ChannelSecret": 'ca0ff3c70d1394e8570ca10b5b4ae970',
+        "X-Line-Trusted-User-With-ACL": 'u4e9fb9657e83db949ef2a44580b97e20',
+        "Content-Type": 'application/json; charset=UTF-8',
+    }
+    return linebot(LINE_HEADERS_2)
+
+
+def linebot(headers):
     import urllib
     if 'X-Line-Channelsignature' not in flask.request.headers:
         app.logger.warn('No Channelsignature')
         return flask.Response(status=470)
-    if not isValidChannelSignature(
+    if not isValidChannelSignature(headers,
             urllib.unquote(flask.request.headers['X-Line-Channelsignature']), 
             flask.request.get_data()):
         app.logger.info(flask.request.json)
@@ -166,7 +180,7 @@ def linebot():
     for req in flask.request.json["result"]:
         if req["eventType"] == "138311609100106403":
             uid = req["content"]['params'][0]
-            sendLineText(uid, u"Nga'ayho!  歡迎使用阿美語萌典 Line 機器人!")
+            sendLineText(headers, uid, u"Nga'ayho!  歡迎使用阿美語萌典 Line 機器人!")
         elif req["eventType"] == "138311609000106303":
             uid = req["content"]["from"]
             txt = req["content"]["text"]
@@ -175,7 +189,7 @@ def linebot():
                 return flask.Response(status=470)
             txt = txt.strip()
             r = textSearch(uid, txt)
-            sendLineText(uid, r)
+            sendLineText(headers, uid, r)
     return flask.Response(status=200)
 
 
@@ -192,7 +206,7 @@ def hasValidDict(uid):
         return False
 
 
-def sendLineText(to, msg):
+def sendLineText(headers, to, msg):
     data = { "contentType": 1, "toType": 1 }
     if isinstance(msg, types.StringTypes):
         data['text'] = msg
@@ -203,10 +217,10 @@ def sendLineText(to, msg):
             data['text'] = u'%s\n請輸入 0 查看例句' % msg['text']
     else:
         app.logger.error('Unknown msg %s', msg)
-    lineEvents(to, data)
+    lineEvents(headers, to, data)
 
 
-def lineEvents(to, content):
+def lineEvents(headers, to, content):
     data = {
         "to": [to,],
         "toChannel": 1383378250,
@@ -214,7 +228,7 @@ def lineEvents(to, content):
         "content": content,
     }
     # app.logger.info(data)
-    r = requests.post(LINE_ENDPOINT + "/v1/events", data=json.dumps(data), headers=LINE_HEADERS)
+    r = requests.post(LINE_ENDPOINT + "/v1/events", data=json.dumps(data), headers=headers)
     if r.status_code != requests.codes.ok:
         pprint.pprint(data)
         app.logger.warn(str(r.status_code))

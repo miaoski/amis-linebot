@@ -66,14 +66,18 @@ def safolu(uid, txt):
     cur = db.cursor()
     print u'UID %s 查蔡中涵辭典: %s' % (uid, txt)
     if isCJK(txt):    # 漢語查阿美語
+        cur.execute('SELECT title FROM amis WHERE cmn LIKE ? ORDER BY LENGTH(cmn) LIMIT 10', ('%%' +txt+ '%%', ))
+        rows = cur.fetchall()
+        answer = [r[0] for r in rows]
         cur.execute('SELECT title FROM amis WHERE json LIKE ? LIMIT 10', ('%%' +txt+ '%%', ))
         rows = cur.fetchall()
-        if len(rows) == 0:
+        answer = answer + [r[0] for r in rows if r[0] not in answer]
+        if len(answer) == 0:
             return u'找不到這個詞。'
         else:
             return {'type': 'options',
                     'text': u'有「%s」的阿美語詞' % txt, 
-                    'words': [r[0] for r in rows]}
+                    'words': answer[:10]}
     cur.execute('SELECT json FROM amis WHERE title=?', (txt,))
     row = cur.fetchone()
     if row:

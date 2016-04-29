@@ -14,6 +14,10 @@ def load_amis():
     dictionary = json.load(open("dict-safolu.json"))
     for word in dictionary:
         title = word['title']
+        cmn = []
+        for h in word['heteronyms']:
+            for d in h['definitions']:
+                cmn.append(d['def'].replace(u'\ufff9\ufffa\ufffb', ''))
         content = json.dumps(word, ensure_ascii=False) \
                 .replace(u'\ufff9\ufffa\ufffb', '') \
                 .replace('"heteronyms"', '"h"') \
@@ -22,7 +26,7 @@ def load_amis():
                 .replace('"example":', '"e":') \
                 .replace('"synonyms":', '"s":') \
                 .replace('"def":', '"f":')
-        cur.execute('INSERT INTO amis VALUES (?,?)', (title, content))
+        cur.execute('INSERT INTO amis VALUES (?,?,?)', (title, ' '.join(cmn), content))
     conn.commit()
 
 
@@ -39,10 +43,12 @@ def fuzzy_amis():
 
 if __name__ == '__main__':
     cur = conn.cursor()
-    cur.execute('CREATE TABLE IF NOT EXISTS amis (title text, json text)')
-    cur.execute('CREATE INDEX IF NOT EXISTS amis_title ON amis (title)')
-    cur.execute('CREATE TABLE IF NOT EXISTS fuzzy (fuzz text, amis text)')
-    cur.execute('CREATE INDEX IF NOT EXISTS fuzzy_fuzz ON fuzzy (fuzz)')
+    cur.execute('DROP TABLE amis');
+    cur.execute('DROP TABLE fuzzy');
+    cur.execute('CREATE TABLE amis (title text, cmn text, json text)')
+    cur.execute('CREATE INDEX amis_title ON amis (title)')
+    cur.execute('CREATE TABLE fuzzy (fuzz text, amis text)')
+    cur.execute('CREATE INDEX fuzzy_fuzz ON fuzzy (fuzz)')
     conn.commit()
     load_amis()
     fuzzy_amis()
