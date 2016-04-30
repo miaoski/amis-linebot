@@ -85,12 +85,17 @@ def safolu(uid, txt):
         r = ''
         for h in j['h']:
             i = 1
-            r = r + j['t'] + ':\n'
+            r = r + j['t']
+            if 'stem' in j:
+                r = r + ' (%s)' % j['stem']
+            r = r + ':\n'
             for d in h['d']:
                 r = r + '%d. %s\n' % (i, d['f'])
                 if 'e' in d:
                     for ex in d['e']:
                         r = r + u'%s\n' % renderSafoluExample(ex)
+                if 's' in d:
+                    r = r + u'⟹ ' + ', '.join(d['s']) + '\n'
                 i = i + 1
             if 's' in h:
                 r = r + u'相似詞: %s' % (h['s'],)
