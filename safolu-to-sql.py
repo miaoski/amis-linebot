@@ -17,7 +17,10 @@ def load_amis():
         cmn = []
         for h in word['heteronyms']:
             for d in h['definitions']:
-                cmn.append(d['def'].replace(u'\ufff9\ufffa\ufffb', ''))
+                cmn.append(d['def'] \
+                        .replace(u'\ufff9\ufffa\ufffb', '') \
+                        .replace('`', '') \
+                        .replace('~', ''))
         content = json.dumps(word, ensure_ascii=False) \
                 .replace(u'\ufff9\ufffa\ufffb', '') \
                 .replace('"heteronyms"', '"h"') \
@@ -25,7 +28,9 @@ def load_amis():
                 .replace('"title":', '"t":') \
                 .replace('"example":', '"e":') \
                 .replace('"synonyms":', '"s":') \
-                .replace('"def":', '"f":')
+                .replace('"def":', '"f":') \
+                .replace('`', '') \
+                .replace('~', '')
         cur.execute('INSERT INTO amis VALUES (?,?,?)', (title, ' '.join(cmn), content))
     conn.commit()
 
