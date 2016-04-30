@@ -89,6 +89,8 @@ def safolu(uid, txt):
             if 'stem' in j:
                 r = r + ' (%s)' % j['stem']
             r = r + ':\n'
+            if 'tag' in j:
+                r = r + j['tag'] + '\n'
             for d in h['d']:
                 r = r + '%d. %s\n' % (i, d['f'])
                 if 'e' in d:
