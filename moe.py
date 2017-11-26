@@ -1,6 +1,7 @@
 # -*- coding: utf8 -*-
 
 import re
+import requests
 
 # copied from stackoverflow
 HANUNI = re.compile(ur'^[⺀-⺙⺛-⻳⼀-⿕々〇〡-〩〸-〺〻㐀-䶵一-鿃豈-鶴侮-頻並-龎]+$', re.UNICODE)

@@ -4,16 +4,21 @@
 
 Line Bot 的 callback URL 需要 https ，會驗證簽章，有幾種方法。感謝 Ronny Wang 提供方法和幫忙測試。
 
+舊的 Linebot 是自己刻的，新的改用 [line-bot-sdk](https://github.com/line/line-bot-sdk-python) 。
+
 
 關於SSL
 -------
 1. 用 Heroku 做一個小的 reverse proxy。請參考 Ronny Wang 寫的 `amis-proxy.php`。如果每天用量在 18 小時以內免費，超過的話每月 US$7
 2. 用 AWS CloudFront，收費是 US$0.14/GB
 3. LINE 目前支援 Let's Encrypt X1 及 Let's Encrypt X3 。
+4. 可以使用榮尼王的新服務 [middle2.com](middle2.com) 內建提供 SSL 及定時更新服務。
 
 
 FB Messenger Bot
 ----------------
+
+阿美語 LineBot 和 FB Messenger Bot 使用相同的後端，只有 API 稍做修改，所以把兩個 BOT 放在同一個 repo 裡面。
 
 FB Messenger Bot 的前置作業，請參考 [Facebook Messenger Platform Quick Start](https://developers.facebook.com/docs/messenger-platform/quickstart) 的說明。
 
@@ -46,6 +51,7 @@ Line BOT 的寫作參考了這篇文章:
 此外， `fbbot.cfg` 請放上兩行字，第一行是 Verify Token 第二行是 Page Access Token。
 
 建議不要用 root 執行 Bot，請修改 `/etc/ufw/before.rules` 並加上 port-forwarding:
+
 ```
 *nat
 :PREROUTING ACCEPT [0:0]
@@ -53,7 +59,7 @@ Line BOT 的寫作參考了這篇文章:
 COMMIT
 ```
 
-預設的 callback URL 是 https://amis.miaoski.idv.tw:443/callback ，要修改的話請記得改一下 `linebot.py` 裡的路徑。當然目前因為 Line 不支援 Let's Encrypt 的關係，我們用的是 Heroku 上的代理 callback。
+預設的 callback URL 是 https://amis.miaoski.idv.tw:443/callback ，要修改的話請記得改一下 `linebot.py` 裡的路徑。
 
 
 

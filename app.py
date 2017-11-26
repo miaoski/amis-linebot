@@ -1,8 +1,4 @@
 # -*- coding: utf8 -*-
-import sys
-import sqlite3
-import flask
-import uuid
 import re
 import logging
 import ConfigParser
@@ -12,13 +8,29 @@ import amis
 import moe
 import pprint
 import types
+from flask import Flask, request, abort
+from linebot import (LineBotApi, WebhookHandler)
+from linebot.exceptions import (InvalidSignatureError)
+from linebot.models import (MessageEvent, TextMessage, TextSendMessage)
 
-app = flask.Flask(__name__)
+app = Flask(__name__)
 app.logger.setLevel(logging.DEBUG)
+config = ConfigParser.ConfigParser()
+try:
+    (FB_TOKEN, FB_APP_TOKEN) = [x.strip() for x in open('fbtoken.cfg')]
+except:
+    print u'請修改 fbtoken.cfg'
+    raise
+try:
+    config.read('linebot.cfg')
+    line_bot_api = LineBotApi(config.get('linebot', 'channelAccessToken'))
+    handler = WebhookHandler(config.get('linebot', 'channelSecret'))
+except:
+    print u'請 cp linebot.cfg.default linebot.cfg 並修改裡面的設定'
+    raise
 
-LINE_ENDPOINT = "https://trialbot-api.line.me"
 USER_DICT = {}
-USER_DICT_DEFAULT = 'fey'
+USER_DICT_DEFAULT = 'safolu'
 USER_DICT_CODE = ['fey', 'safolu', 'moe', 'tai', 'hak']
 SUPPORTED_DICT = {
         'fey': u'阿美語(方敏英)字典', 
@@ -35,12 +47,12 @@ def homepage():
 
 @app.route('/fb', methods=['GET', 'POST'])
 def fbbot():
-    if flask.request.method == 'GET':
-        if flask.request.args.get('hub.verify_token') == FB_TOKEN:
-            return flask.request.args.get('hub.challenge'), 200
-    if flask.request.method == 'POST':
-        # app.logger.info(flask.request.json)
-        for messaging in flask.request.json['entry'][0]['messaging']:
+    if request.method == 'GET':
+        if request.args.get('hub.verify_token') == FB_TOKEN:
+            return request.args.get('hub.challenge'), 200
+    if request.method == 'POST':
+        # app.logger.info(request.json)
+        for messaging in request.json['entry'][0]['messaging']:
             if 'sender' not in messaging:
                 app.logger.warn('How can I response to a message without sender?')
                 pprint.pprint(messaging)
@@ -67,7 +79,8 @@ def fbbot():
                     pprint.pprint(messaging)
                     continue
                 pb = messaging['postback']['payload']
-                app.logger.info(u'UID %d 選取 %s' % (uid, pb))
+                # print uid,pb
+                # app.logger.info(u'UID %d 選取 %s' % (uid, pb))
                 r = textSearch(uid, pb)
                 sendFBMsg(uid, r)
         return flask.Response(status=200)
@@ -130,53 +143,31 @@ def sendFBMsg(uid, txt):
         app.logger.warn(str(r.status_code))
         app.logger.warn(str(r.headers))
 
-
-def isValidChannelSignature(exp, raw):
-    import hashlib
-    import hmac
-    import base64
-    secret = LINE_HEADERS['X-Line-ChannelSecret']
-    calc = base64.b64encode(hmac.new(secret, raw, digestmod=hashlib.sha256).digest())
-    if exp != calc:
-        app.logger.warn('X-Line-Channelsignature: ' + exp)
-        app.logger.warn('Calculated             : ' + calc)
-        return False
-    else:
-        return True
+#
+# LINE Bot 從這裡開始
+#
 
 @app.route('/callback', methods=['POST',])
-def linebot():
-    import urllib
-    if 'X-Line-Channelsignature' not in flask.request.headers:
-        app.logger.warn('No Channelsignature')
-        return flask.Response(status=470)
-    if not isValidChannelSignature(
-            urllib.unquote(flask.request.headers['X-Line-Channelsignature']), 
-            flask.request.get_data()):
-        app.logger.info(flask.request.json)
-        return flask.Response(status=470)
-    if not flask.request.json:
-        app.logger.warn('No JSON')
-        app.logger.info(flask.request.json)
-        return flask.Response(status=470)
-    if 'result' not in flask.request.json:
-        app.logger.warn('There is no result in request.json')
-        app.logger.info(flask.request.json)
-        return flask.Response(status=470)
-    for req in flask.request.json["result"]:
-        if req["eventType"] == "138311609100106403":
-            uid = req["content"]['params'][0]
-            sendLineText(uid, u"Nga'ayho!  歡迎使用阿美語萌典 Line 機器人!")
-        elif req["eventType"] == "138311609000106303":
-            uid = req["content"]["from"]
-            txt = req["content"]["text"]
-            if txt is None:
-                pprint.pprint(req)
-                return flask.Response(status=470)
-            txt = txt.strip()
-            r = textSearch(uid, txt)
-            sendLineText(uid, r)
-    return flask.Response(status=200)
+def linebot_callback():
+    signature = request.headers['X-Line-Signature']
+    body = request.get_data(as_text=True)
+    app.logger.info("Request body: " + body)
+    try:
+        handler.handle(body, signature)
+    except InvalidSignatureError:
+        abort(400)
+    return 'OK'
+
+@handler.add(MessageEvent, message=TextMessage)
+def linebot_message(event):
+    txt = event.message.text.strip()
+    uid = event.source.user_id
+    answer = textSearch(uid, txt)
+    reply = line_text_postprocess(uid, answer)
+    line_bot_api.reply_message(
+        event.reply_token,
+        TextSendMessage(text=reply))
+    return 0
 
 
 def hasValidDict(uid):
@@ -192,38 +183,21 @@ def hasValidDict(uid):
         return False
 
 
-def sendLineText(to, msg):
-    data = { "contentType": 1, "toType": 1 }
+def line_text_postprocess(uid, msg):
     if isinstance(msg, types.StringTypes):
-        data['text'] = msg
+        reply = msg
     elif isinstance(msg, types.DictType):
         if msg['type'] == 'options':        # 選擇單字
-            data['text'] = msg['text'] +'\n'+ fey.iterrows([[x,] for x in msg['words']], to)
+            reply = msg['text'] +'\n'+ amis.iterrows([[x,] for x in msg['words']], uid)
         elif msg['type'] == 'stropt':       # 要看例句嗎
-            data['text'] = u'%s\n請輸入 0 查看例句' % msg['text']
+            reply = u'%s\n請輸入 0 查看例句' % msg['text']
     else:
         app.logger.error('Unknown msg %s', msg)
-    lineEvents(to, data)
-
-
-def lineEvents(to, content):
-    data = {
-        "to": [to,],
-        "toChannel": 1383378250,
-        "eventType": "138311608800106203",
-        "content": content,
-    }
-    # app.logger.info(data)
-    r = requests.post(LINE_ENDPOINT + "/v1/events", data=json.dumps(data), headers=LINE_HEADERS)
-    if r.status_code != requests.codes.ok:
-        pprint.pprint(data)
-        app.logger.warn(str(r.status_code))
-        app.logger.warn(str(r.headers))
-        app.logger.warn(str(r.text))
+    return reply
 
 
 def command(uid, cmd):
-    cmd = cmd.lower().strip()
+    cmd = cmd.lower()
     general_help_msg = u'/ 或 ?: 本使用說明\n'
     for i in range(len(USER_DICT_CODE)):
         general_help_msg += u'/%d : 切換至%s\n' % (i+1, SUPPORTED_DICT[USER_DICT_CODE[i]])
@@ -242,7 +216,7 @@ def command(uid, cmd):
 
 
 def textSearch(uid, txt):
-    app.logger.info(u'UID %d 查詢 %s' % (uid, txt))
+    app.logger.info(u'UID %s 查詢 %s' % (str(uid), txt))
     hasValidDict(uid)
     if txt[0] in ('/', '?'):            # 功能鍵
         return command(uid, txt)
@@ -259,26 +233,10 @@ def textSearch(uid, txt):
     app.logger.error('Should not be here.  Fatal 1.')
 
 
-if __name__ == "__main__":
-    config = ConfigParser.ConfigParser()
-    try:
-        (FB_TOKEN, FB_APP_TOKEN) = [x.strip() for x in open('fbtoken.cfg')]
-    except:
-        print u'請修改 fbtoken.cfg'
-        raise
-    try:
-        config.read('linebot.cfg')
-        LINE_HEADERS = {
-            "X-Line-ChannelID": config.get('linebot', 'channelID'),
-            "X-Line-ChannelSecret": config.get('linebot', 'channelSecret'),
-            "X-Line-Trusted-User-With-ACL": config.get('linebot', 'MID'),
-            "Content-Type": 'application/json; charset=UTF-8',
-        }
-    except:
-        print u'請 cp linebot.cfg.default linebot.cfg 並修改裡面的設定'
-        raise
-    app.config['JSON_AS_ASCII'] = False     # JSON in UTF-8
-    app.config['DEBUG'] = True
-    context = ('fullchain.pem', 'privkey.pem') # Copy /etc/letsencrypt/live/ files to current dir
-    app.run(host = '0.0.0.0', threaded=False, port=8443, ssl_context=context)
-    print 'Shutdown...'
+#
+# main
+#
+app.config['JSON_AS_ASCII'] = False     # JSON in UTF-8
+app.config['DEBUG'] = False
+context = ('fullchain.pem', 'privkey.pem') # Copy /etc/letsencrypt/live/ files to current dir
+app.run(host = '0.0.0.0', threaded=False, port=8443, ssl_context=context)
