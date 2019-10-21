@@ -11,4 +11,4 @@ MarkupSafe==1.0
 requests==2.18.4
 sqlite3==0.0.0
 urllib3==1.22
-Werkzeug==0.12.2
+Werkzeug==0.15.3
