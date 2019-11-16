@@ -66,3 +66,4 @@ linebot.cfg
 fbtoken.cfg
 *.pem
 dict-safolu.sq3
+stem-words.json
