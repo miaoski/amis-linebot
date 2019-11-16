@@ -18,6 +18,8 @@ Line Bot 的 callback URL 需要 https ，會驗證簽章，有幾種方法。�
 FB Messenger Bot
 ----------------
 
+**FB Messenger Bot 已經放棄了** 。要做出讓 Facebook 買單的申請單有點小困難，就不想管它了。
+
 阿美語 LineBot 和 FB Messenger Bot 使用相同的後端，只有 API 稍做修改，所以把兩個 BOT 放在同一個 repo 裡面。
 
 FB Messenger Bot 的前置作業，請參考 [Facebook Messenger Platform Quick Start](https://developers.facebook.com/docs/messenger-platform/quickstart) 的說明。
@@ -67,6 +69,10 @@ COMMIT
 --------------------
 請從 [amis-safolu](https://github.com/miaoski/amis-safolu/) 下載字典檔，並 `ln -s ../amis-safolu/txt/dict-amis.json dict-safolu.json` 。
 
+
+詞幹表
+------
+從阿美語萌典的 [詞幹表](https://raw.githubusercontent.com/g0v/amis-moedict/master/amis-deploy/s/stem-words.json) 抓出來用即可。
 
 
 致謝
